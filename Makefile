@@ -1,12 +1,14 @@
-# Makefile pour l'application Vacances Gamifiées - Tests BDD
+# Makefile pour l'application Vacances Gamifiées - Full Stack
 # Usage: make [target]
 
-.PHONY: help install test test-smoke test-auth test-ui test-api test-staging test-parallel clean reports
+.PHONY: help install test test-smoke test-auth test-ui test-api test-staging test-parallel clean reports backend-setup backend-dev backend-test frontend-setup frontend-dev
 
 # Variables par défaut
 PYTHON := python3
 PIP := pip3
 BDD_DIR := bdd
+BACKEND_DIR := backend
+FRONTEND_DIR := frontend
 REPORTS_DIR := reports
 
 # Couleurs pour l'affichage
@@ -18,18 +20,95 @@ NC := \033[0m
 
 # Aide par défaut
 help: ## Afficher cette aide
-	@echo -e "$(BLUE)🧪 Tests BDD - Application Vacances Gamifiées$(NC)"
+	@echo -e "$(BLUE)🚀 Lake Holidays Challenge - Full Stack Application$(NC)"
 	@echo ""
 	@echo "Targets disponibles:"
-	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z_-]+:.*##/ { printf "  $(GREEN)%-20s$(NC) %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z_-]+:.*##/ { printf "  $(GREEN)%-25s$(NC) %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "Exemples:"
-	@echo "  make install     # Installer les dépendances"
-	@echo "  make test-smoke  # Tests critiques rapides"
-	@echo "  make test-ui     # Tests d'interface uniquement"
-	@echo "  make reports     # Générer tous les rapports"
+	@echo "  make setup           # Configuration complète (backend + frontend + BDD)"
+	@echo "  make backend-dev     # Démarrer le backend en mode développement"
+	@echo "  make frontend-dev    # Démarrer le frontend en mode développement"
+	@echo "  make test-smoke      # Tests critiques rapides"
+	@echo "  make docker-up       # Démarrer tous les services avec Docker"
 
-# Installation
+# =============================================================================
+# SETUP ET INSTALLATION
+# =============================================================================
+
+setup: backend-setup frontend-setup install ## Configuration complète du projet
+	@echo -e "$(GREEN)✅ Configuration complète terminée$(NC)"
+	@echo ""
+	@echo "Prochaines étapes:"
+	@echo "1. Backend:  make backend-dev"
+	@echo "2. Frontend: make frontend-dev"
+	@echo "3. Tests:    make test-smoke"
+
+# Backend
+backend-setup: ## Configuration du backend Python/FastAPI
+	@echo -e "$(BLUE)🐍 Configuration du backend...$(NC)"
+	cd $(BACKEND_DIR) && chmod +x scripts/setup-dev.sh && ./scripts/setup-dev.sh
+
+backend-install: ## Installer uniquement les dépendances backend
+	@echo -e "$(BLUE)📦 Installation backend...$(NC)"
+	cd $(BACKEND_DIR) && $(PIP) install -r requirements.txt
+
+backend-dev: ## Démarrer le backend en mode développement
+	@echo -e "$(BLUE)🚀 Démarrage backend (http://localhost:8000)...$(NC)"
+	cd $(BACKEND_DIR) && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+backend-test: ## Tests unitaires du backend
+	@echo -e "$(BLUE)🧪 Tests backend...$(NC)"
+	cd $(BACKEND_DIR) && pytest -v
+
+backend-lint: ## Vérification du code backend
+	@echo -e "$(BLUE)🔍 Lint backend...$(NC)"
+	cd $(BACKEND_DIR) && black . && isort . && flake8 .
+
+# Frontend
+frontend-setup: ## Configuration du frontend React/Vite
+	@echo -e "$(BLUE)⚛️  Configuration du frontend...$(NC)"
+	cd $(FRONTEND_DIR) && npm install
+
+frontend-dev: ## Démarrer le frontend en mode développement
+	@echo -e "$(BLUE)🚀 Démarrage frontend (http://localhost:5173)...$(NC)"
+	cd $(FRONTEND_DIR) && npm run dev
+
+frontend-build: ## Build du frontend pour production
+	@echo -e "$(BLUE)🏗️  Build frontend...$(NC)"
+	cd $(FRONTEND_DIR) && npm run build
+
+frontend-test: ## Tests du frontend
+	@echo -e "$(BLUE)🧪 Tests frontend...$(NC)"
+	cd $(FRONTEND_DIR) && npm test
+
+frontend-lint: ## Vérification du code frontend
+	@echo -e "$(BLUE)🔍 Lint frontend...$(NC)"
+	cd $(FRONTEND_DIR) && npm run lint
+
+# =============================================================================
+# DOCKER
+# =============================================================================
+
+docker-up: ## Démarrer tous les services avec Docker
+	@echo -e "$(BLUE)🐳 Démarrage des services Docker...$(NC)"
+	cd $(BACKEND_DIR) && docker-compose up -d
+
+docker-down: ## Arrêter tous les services Docker
+	@echo -e "$(BLUE)🛑 Arrêt des services Docker...$(NC)"
+	cd $(BACKEND_DIR) && docker-compose down
+
+docker-logs: ## Voir les logs des services Docker
+	@echo -e "$(BLUE)📋 Logs des services...$(NC)"
+	cd $(BACKEND_DIR) && docker-compose logs -f
+
+docker-build: ## Rebuild des images Docker
+	@echo -e "$(BLUE)🔨 Build des images Docker...$(NC)"
+	cd $(BACKEND_DIR) && docker-compose build
+
+# =============================================================================
+# BDD TESTS (Tests d'acceptation)
+# =============================================================================
 install: ## Installer les dépendances BDD
 	@echo -e "$(BLUE)📦 Installation des dépendances BDD...$(NC)"
 	cd $(BDD_DIR) && $(PIP) install -r requirements.txt
