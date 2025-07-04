@@ -2,6 +2,9 @@
 Season service for season management operations
 """
 
+import uuid
+import secrets
+import string
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, func
@@ -20,16 +23,55 @@ class SeasonService:
     def __init__(self, db: AsyncSession):
         self.db = db
     
+    def _generate_invitation_code(self) -> str:
+        """Generate a unique 6-character invitation code."""
+        return ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(6))
+    
     async def create_season(self, season_data: SeasonCreate, created_by: str) -> Season:
         """Create a new season."""
+        # Generate unique invitation code
+        invitation_code = self._generate_invitation_code()
+        
+        # Ensure invitation code is unique
+        while True:
+            result = await self.db.execute(
+                select(Season).where(Season.invitation_code == invitation_code)
+            )
+            if not result.scalar_one_or_none():
+                break
+            invitation_code = self._generate_invitation_code()
+        
+        # Convert datetime to date for start_date and end_date
+        start_date = season_data.start_date.date() if hasattr(season_data.start_date, 'date') else season_data.start_date
+        end_date = season_data.end_date.date() if hasattr(season_data.end_date, 'date') else season_data.end_date
+        
         season = Season(
-            created_by=created_by,
-            **season_data.model_dump()
+            title=season_data.title,
+            description=season_data.description,
+            location=season_data.location,
+            latitude=season_data.latitude,
+            longitude=season_data.longitude,
+            start_date=start_date,
+            end_date=end_date,
+            cover_image_url=season_data.cover_image_url,
+            invitation_code=invitation_code,
+            is_active=season_data.is_active,
+            created_by=created_by
         )
         
         self.db.add(season)
         await self.db.commit()
         await self.db.refresh(season)
+        
+        # Automatically add the creator as an admin member
+        creator_member = SeasonMember(
+            season_id=season.id,
+            user_id=created_by,
+            role="admin"
+        )
+        self.db.add(creator_member)
+        await self.db.commit()
+        
         return season
     
     async def get_season_by_id(self, season_id: str) -> Optional[Season]:

@@ -66,7 +66,9 @@ class Season(Base):
     @property
     def member_count(self) -> int:
         """Get number of active members."""
-        return len([m for m in self.members if m.is_active])
+        if hasattr(self, 'members') and self.members:
+            return len([m for m in self.members if m.is_active])
+        return 0
 
     def __repr__(self):
         return f"<Season {self.title} ({self.start_date} - {self.end_date})>"
