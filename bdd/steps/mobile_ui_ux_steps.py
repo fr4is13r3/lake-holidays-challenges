@@ -7,7 +7,6 @@ from behave import given, when, then
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.common.touch_actions import TouchActions
 from selenium.common.exceptions import TimeoutException
 import time
 
@@ -162,13 +161,12 @@ def step_swipe_left(context):
     screen_width = context.driver.execute_script("return window.innerWidth;")
     screen_height = context.driver.execute_script("return window.innerHeight;")
     
-    # Effectuer le swipe avec TouchActions
-    touch_actions = TouchActions(context.driver)
-    touch_actions.scroll_from_element(
-        context.driver.find_element(By.TAG_NAME, "body"),
-        -screen_width // 2, 0
-    )
-    touch_actions.perform()
+    # Effectuer le swipe avec ActionChains (méthode moderne)
+    action_chains = ActionChains(context.driver)
+    body_element = context.driver.find_element(By.TAG_NAME, "body")
+    
+    # Simuler un swipe vers la gauche avec drag_and_drop_by_offset
+    action_chains.click_and_hold(body_element).move_by_offset(-screen_width // 2, 0).release().perform()
     
     context.last_swipe = "left"
 
@@ -178,12 +176,11 @@ def step_swipe_right(context):
     """Effectuer un swipe vers la droite"""
     screen_width = context.driver.execute_script("return window.innerWidth;")
     
-    touch_actions = TouchActions(context.driver)
-    touch_actions.scroll_from_element(
-        context.driver.find_element(By.TAG_NAME, "body"),
-        screen_width // 2, 0
-    )
-    touch_actions.perform()
+    action_chains = ActionChains(context.driver)
+    body_element = context.driver.find_element(By.TAG_NAME, "body")
+    
+    # Simuler un swipe vers la droite avec drag_and_drop_by_offset
+    action_chains.click_and_hold(body_element).move_by_offset(screen_width // 2, 0).release().perform()
     
     context.last_swipe = "right"
 

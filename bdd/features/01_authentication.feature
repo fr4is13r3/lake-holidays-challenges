@@ -10,11 +10,11 @@ Feature: Authentification des utilisateurs
   @authentication @smoke
   Scenario: Connexion avec un compte local
     Given je suis un nouvel utilisateur
-    When je clique sur "Créer un compte local"
+    When je clique sur le bouton "Créer un compte local"
     And je saisis un nom d'utilisateur valide "papa_vacances"
     And je saisis un mot de passe sécurisé "MonMotDePasse123!"
     And je confirme mon mot de passe
-    And je clique sur "Créer le compte"
+    And je clique sur le bouton "Créer le compte"
     Then je dois être connecté automatiquement
     And je dois voir la page d'accueil de l'application
     And mon profil doit être créé avec le nom "papa_vacances"
@@ -22,7 +22,7 @@ Feature: Authentification des utilisateurs
   @authentication @google
   Scenario: Connexion avec un compte Google
     Given je suis sur la page de connexion
-    When je clique sur "Se connecter avec Google"
+    When je clique sur le bouton "Se connecter avec Google"
     And je suis redirigé vers Google OAuth
     And je m'authentifie avec mes identifiants Google valides
     And j'autorise l'application à accéder à mes informations
@@ -33,7 +33,7 @@ Feature: Authentification des utilisateurs
   @authentication @microsoft
   Scenario: Connexion avec un compte Microsoft
     Given je suis sur la page de connexion
-    When je clique sur "Se connecter avec Microsoft"
+    When je clique sur le bouton "Se connecter avec Microsoft"
     And je suis redirigé vers Microsoft OAuth
     And je m'authentifie avec mes identifiants Microsoft valides
     And j'autorise l'application à accéder à mes informations
@@ -46,7 +46,7 @@ Feature: Authentification des utilisateurs
     Given je suis sur la page de connexion
     When je saisis un nom d'utilisateur "utilisateur_inexistant"
     And je saisis un mot de passe "mauvais_mot_de_passe"
-    And je clique sur "Se connecter"
+    And je clique sur le bouton "Se connecter"
     Then je dois voir un message d'erreur "Identifiants incorrects"
     And je dois rester sur la page de connexion
 
@@ -55,7 +55,7 @@ Feature: Authentification des utilisateurs
     Given je suis connecté avec le compte "papa_vacances"
     And je suis sur la page d'accueil
     When je clique sur le menu profil
-    And je clique sur "Se déconnecter"
+    And je clique sur le bouton "Se déconnecter"
     Then je dois être déconnecté
     And je dois être redirigé vers la page de connexion
     And mes données de session doivent être effacées

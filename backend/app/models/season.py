@@ -38,9 +38,6 @@ class Season(Base):
     # Media
     cover_image_url: Mapped[Optional[str]] = Column(String(500), nullable=True)
     
-    # Season limits
-    max_members: Mapped[Optional[int]] = Column(Integer, nullable=True)
-    
     # Invitation system
     invitation_code: Mapped[str] = Column(String(8), unique=True, nullable=False, index=True)
     

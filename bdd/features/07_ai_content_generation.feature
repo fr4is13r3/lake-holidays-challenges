@@ -10,7 +10,7 @@ Feature: Génération de contenu par Intelligence Artificielle
 
   @ai @quiz_generation
   Scenario: Génération de quiz contextuels
-    Given nous sommes le "15/07/2025" à "Saint-Denis, La Réunion"
+    Given nous sommes le "15/07/2025" pendant les vacances à "Saint-Denis, La Réunion"
     And l'activité prévue est "Visite du Jardin de l'État"
     When le système génère un quiz
     Then le quiz doit contenir des questions sur :

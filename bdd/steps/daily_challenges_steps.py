@@ -171,7 +171,7 @@ def step_select_quiz_answer(context, answer):
     context.selected_answer = answer
 
 
-@when('je clique sur "Valider ma réponse"')
+@when('je valide ma réponse au quiz')
 def step_validate_quiz_answer(context):
     """Valider la réponse au quiz"""
     validate_btn = context.driver.find_element(

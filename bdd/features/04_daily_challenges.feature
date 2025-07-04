@@ -26,7 +26,7 @@ Feature: Défis quotidiens et quiz
     Then je dois voir une question "Quel est l'épice emblématique de la cuisine créole ?"
     And je dois voir 4 options de réponse
     When je sélectionne "Curcuma"
-    And je clique sur "Valider ma réponse"
+    And je valide ma réponse au quiz
     Then je dois voir "Bonne réponse ! +10 points"
     And mes points doivent être mis à jour automatiquement
 

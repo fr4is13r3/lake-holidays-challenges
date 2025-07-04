@@ -39,7 +39,7 @@ async def get_seasons(
             end_date=season.end_date,
             cover_image_url=season.cover_image_url,
             is_active=season.is_active,
-            max_members=season.max_members,
+            max_members=None,  # Temporairement None jusqu'à la migration
             created_by=str(season.created_by),
             invitation_code=season.invitation_code,
             is_completed=season.is_completed,
@@ -74,7 +74,7 @@ async def create_season(
         end_date=season.end_date,
         cover_image_url=season.cover_image_url,
         is_active=season.is_active,
-        max_members=season.max_members,
+        max_members=None,  # Temporairement None jusqu'à la migration
         created_by=str(season.created_by),
         invitation_code=season.invitation_code,
         is_completed=season.is_completed,
@@ -111,7 +111,7 @@ async def get_season(
         end_date=season.end_date,
         cover_image_url=season.cover_image_url,
         is_active=season.is_active,
-        max_members=season.max_members,
+        max_members=None,  # Temporairement None jusqu'à la migration
         created_by=str(season.created_by),
         invitation_code=season.invitation_code,
         is_completed=season.is_completed,

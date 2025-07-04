@@ -44,7 +44,7 @@ Feature: Gestion des saisons de vacances
   @season @activation
   Scenario: Activation automatique de la saison
     Given la saison "Vacances Réunion 2025" commence le "01/07/2025"
-    And nous sommes le "01/07/2025"
+    And nous sommes le "01/07/2025" de la saison
     When j'ouvre l'application
     Then la saison doit être automatiquement activée
     And je dois voir "Votre saison Vacances Réunion 2025 a commencé !"
@@ -53,7 +53,7 @@ Feature: Gestion des saisons de vacances
   @season @end
   Scenario: Fin automatique de la saison
     Given la saison "Vacances Réunion 2025" se termine le "30/07/2025"
-    And nous sommes le "31/07/2025"
+    And nous sommes le "31/07/2025" de la saison
     When j'ouvre l'application
     Then la saison doit être automatiquement désactivée
     And je dois voir un résumé final des scores

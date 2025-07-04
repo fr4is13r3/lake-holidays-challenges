@@ -53,7 +53,16 @@ def step_family_on_vacation_at(context, location):
     """)
 
 
-@given('nous sommes le "{date}"')
+@given('nous sommes le "{date}" pendant les vacances à "{location}"')
+def step_current_vacation_date_location(context, date, location):
+    """Configurer la date actuelle des vacances et le lieu"""
+    context.vacation_date = date
+    context.vacation_location = location
+    context.driver.execute_script(f"window.mockDate = '{date}';")
+    context.driver.execute_script(f"window.mockLocation = '{location}';")
+
+
+@given('nous sommes le "{date}" pendant les vacances')
 def step_current_vacation_date(context, date):
     """Configurer la date actuelle des vacances"""
     context.vacation_date = date

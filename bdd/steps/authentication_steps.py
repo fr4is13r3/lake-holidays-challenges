@@ -106,7 +106,7 @@ def step_on_home_page(context):
 
 # ========== WHEN Steps ==========
 
-@when('je clique sur "{button_text}"')
+@when('je clique sur le bouton "{button_text}"')
 def step_click_button(context, button_text):
     """Cliquer sur un bouton avec le texte spécifié"""
     # Plusieurs sélecteurs possibles pour trouver le bouton

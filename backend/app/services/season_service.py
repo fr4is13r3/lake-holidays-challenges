@@ -54,7 +54,6 @@ class SeasonService:
             start_date=start_date,
             end_date=end_date,
             cover_image_url=season_data.cover_image_url,
-            max_members=season_data.max_members,
             invitation_code=invitation_code,
             is_active=season_data.is_active,
             created_by=created_by
