@@ -78,7 +78,7 @@ const mockPhotos = [
 function App() {
   const [currentScreen, setCurrentScreen] = useState<'home' | 'challenges' | 'leaderboard' | 'photos' | 'profile'>('home');
   const [user, setUser] = useState<typeof mockUser>(mockUser);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
   // Authentication Screen
   const AuthScreen = () => (
