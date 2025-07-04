@@ -1,0 +1,340 @@
+name: 🧪 Tests BDD Automatisés
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Tests quotidiens à 6h00 UTC
+    - cron: '0 6 * * *'
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+
+jobs:
+  # Tests de smoke rapides
+  smoke-tests:
+    name: 🚀 Tests de Smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+    - name: 📥 Checkout du code
+      uses: actions/checkout@v4
+      
+    - name: 🐍 Configuration Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+        
+    - name: 📦 Installation des dépendances BDD
+      run: |
+        cd bdd
+        pip install -r requirements.txt
+        
+    - name: 🔧 Configuration Chrome
+      uses: browser-actions/setup-chrome@latest
+      
+    - name: ⚡ Exécution tests de smoke
+      run: |
+        cd bdd
+        behave --tags=@smoke --format=json --outfile=../reports/smoke-results.json
+      env:
+        TEST_ENV: staging
+        HEADLESS: true
+        
+    - name: 📊 Upload des résultats
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: smoke-test-results
+        path: reports/
+
+  # Tests complets par feature
+  feature-tests:
+    name: 🎯 Tests par Feature
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: smoke-tests
+    if: success()
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        feature: [
+          'authentication',
+          'profile', 
+          'season',
+          'challenges',
+          'scoring',
+          'ui'
+        ]
+    
+    steps:
+    - name: 📥 Checkout du code
+      uses: actions/checkout@v4
+      
+    - name: 🐍 Configuration Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+        
+    - name: 📦 Installation des dépendances
+      run: |
+        cd bdd
+        pip install -r requirements.txt
+        
+    - name: 🔧 Configuration navigateur
+      uses: browser-actions/setup-chrome@latest
+      
+    - name: 🧪 Tests ${{ matrix.feature }}
+      run: |
+        cd bdd
+        behave --tags=@${{ matrix.feature }} \
+               --format=json \
+               --outfile=../reports/${{ matrix.feature }}-results.json
+      env:
+        TEST_ENV: staging
+        HEADLESS: true
+        
+    - name: 📸 Upload captures d'écran
+      uses: actions/upload-artifact@v3
+      if: failure()
+      with:
+        name: screenshots-${{ matrix.feature }}
+        path: reports/screenshots/
+        
+    - name: 📊 Upload résultats de test
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results-${{ matrix.feature }}
+        path: reports/${{ matrix.feature }}-results.json
+
+  # Tests d'intégration end-to-end
+  e2e-tests:
+    name: 🔄 Tests End-to-End
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: feature-tests
+    if: success()
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: vacances_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+    - name: 📥 Checkout du code
+      uses: actions/checkout@v4
+      
+    - name: 🐍 Configuration Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: 🟢 Configuration Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+        
+    - name: 📦 Installation dépendances frontend
+      run: |
+        cd frontend
+        npm ci
+        
+    - name: 🏗️ Build de l'application
+      run: |
+        cd frontend
+        npm run build
+        
+    - name: 🚀 Démarrage serveur local
+      run: |
+        cd frontend
+        npm run preview &
+        sleep 10
+      env:
+        PORT: 3000
+        
+    - name: 📦 Installation dépendances BDD
+      run: |
+        cd bdd
+        pip install -r requirements.txt
+        
+    - name: 🔧 Configuration Chrome
+      uses: browser-actions/setup-chrome@latest
+      
+    - name: 🧪 Tests E2E complets
+      run: |
+        cd bdd
+        behave --format=html --outfile=../reports/e2e-report.html \
+               --format=json --outfile=../reports/e2e-results.json
+      env:
+        TEST_ENV: dev
+        BASE_URL: http://localhost:3000
+        HEADLESS: true
+        DATABASE_URL: postgresql://postgres:test_password@localhost/vacances_test
+        
+    - name: 📊 Upload rapport E2E
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: e2e-report
+        path: reports/e2e-report.html
+        
+    - name: 📸 Upload captures échecs
+      uses: actions/upload-artifact@v3
+      if: failure()
+      with:
+        name: e2e-screenshots
+        path: reports/screenshots/
+
+  # Tests de performance et charge
+  performance-tests:
+    name: ⚡ Tests de Performance
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: smoke-tests
+    if: github.event_name == 'schedule' || contains(github.event.head_commit.message, '[perf]')
+    
+    steps:
+    - name: 📥 Checkout du code
+      uses: actions/checkout@v4
+      
+    - name: 🐍 Configuration Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: 📦 Installation dépendances
+      run: |
+        cd bdd
+        pip install -r requirements.txt
+        
+    - name: ⚡ Tests de performance
+      run: |
+        cd bdd
+        behave --tags=@performance \
+               --format=json \
+               --outfile=../reports/performance-results.json
+      env:
+        TEST_ENV: staging
+        HEADLESS: true
+        
+    - name: 📊 Analyse des performances
+      run: |
+        python -c "
+        import json
+        with open('reports/performance-results.json') as f:
+            results = json.load(f)
+        # Analyse basique des temps de réponse
+        print('📈 Résultats de performance générés')
+        "
+        
+    - name: 📊 Upload résultats performance
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: performance-results
+        path: reports/performance-results.json
+
+  # Génération du rapport final
+  generate-report:
+    name: 📋 Génération Rapport Final
+    runs-on: ubuntu-latest
+    needs: [smoke-tests, feature-tests, e2e-tests]
+    if: always()
+    
+    steps:
+    - name: 📥 Checkout du code
+      uses: actions/checkout@v4
+      
+    - name: 📥 Download tous les artifacts
+      uses: actions/download-artifact@v3
+      with:
+        path: artifacts/
+        
+    - name: 🐍 Configuration Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: 📊 Génération rapport consolidé
+      run: |
+        python .github/scripts/generate_test_report.py artifacts/ reports/
+        
+    - name: 📤 Upload rapport final
+      uses: actions/upload-artifact@v3
+      with:
+        name: consolidated-test-report
+        path: reports/
+        
+    - name: 💬 Commentaire PR avec résultats
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          
+          // Lecture du résumé des tests
+          let comment = '## 🧪 Résultats des Tests BDD\n\n';
+          
+          // Status des tests
+          const smokePassed = '${{ needs.smoke-tests.result }}' === 'success';
+          const featuresPassed = '${{ needs.feature-tests.result }}' === 'success';
+          const e2ePassed = '${{ needs.e2e-tests.result }}' === 'success';
+          
+          comment += `| Test Suite | Status |\n`;
+          comment += `|------------|--------|\n`;
+          comment += `| 🚀 Smoke Tests | ${smokePassed ? '✅' : '❌'} |\n`;
+          comment += `| 🎯 Feature Tests | ${featuresPassed ? '✅' : '❌'} |\n`;
+          comment += `| 🔄 E2E Tests | ${e2ePassed ? '✅' : '❌'} |\n\n`;
+          
+          if (!smokePassed || !featuresPassed || !e2ePassed) {
+            comment += '⚠️ **Des tests ont échoué.** Consultez les artifacts pour plus de détails.\n\n';
+          } else {
+            comment += '✨ **Tous les tests sont passés !** L\'application est prête.\n\n';
+          }
+          
+          comment += '📊 [Voir les rapports détaillés dans les artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n';
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+
+  # Notification des résultats
+  notify:
+    name: 📢 Notification
+    runs-on: ubuntu-latest
+    needs: [smoke-tests, feature-tests, e2e-tests]
+    if: always() && (failure() || success())
+    
+    steps:
+    - name: 📧 Notification de succès
+      if: needs.smoke-tests.result == 'success' && needs.feature-tests.result == 'success' && needs.e2e-tests.result == 'success'
+      run: |
+        echo "✅ Tous les tests BDD sont passés avec succès!"
+        echo "🎉 L'application Vacances Gamifiées est prête pour le déploiement."
+        
+    - name: 🚨 Notification d'échec
+      if: needs.smoke-tests.result == 'failure' || needs.feature-tests.result == 'failure' || needs.e2e-tests.result == 'failure'
+      run: |
+        echo "❌ Des tests BDD ont échoué."
+        echo "🔍 Vérifiez les logs et les captures d'écran dans les artifacts."
+        exit 1

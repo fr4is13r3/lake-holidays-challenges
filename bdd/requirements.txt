@@ -1,0 +1,63 @@
+# Requirements pour les tests BDD avec Behave
+# Application Vacances Gamifiées
+
+# Framework BDD principal
+behave==1.2.6
+
+# Selenium pour les tests d'interface web
+selenium==4.15.2
+webdriver-manager==4.0.1
+
+# Requests pour les tests API
+requests==2.31.0
+requests-oauthlib==1.3.1
+
+# Base de données et ORM pour les tests
+psycopg2-binary==2.9.9
+SQLAlchemy==2.0.23
+
+# Utilitaires pour les tests
+faker==20.1.0  # Génération de données de test
+pytest==7.4.3  # Compatible avec behave pour certains utilitaires
+pytest-html==4.1.1  # Rapports HTML
+
+# Mocking et stubbing
+responses==0.24.1
+httpretty==1.1.4
+
+# Configuration et variables d'environnement
+python-decouple==3.8
+pyyaml==6.0.1
+
+# Reporting avancé
+allure-behave==2.13.2
+behave-html-formatter==0.9.10
+
+# Parallélisation des tests
+behave-parallel==1.2.6
+
+# Assertions avancées
+assertpy==1.1
+
+# Gestion des images pour les tests photo
+Pillow==10.1.0
+
+# Simulation de géolocalisation
+geopy==2.4.1
+
+# Gestion du temps pour les tests
+freezegun==1.2.2
+
+# Logging structuré
+structlog==23.2.0
+
+# Utils pour les tests mobile
+appium-python-client==3.1.1  # Si tests mobile natifs nécessaires
+
+# Performance et monitoring
+memory-profiler==0.61.0
+
+# Development tools
+black==23.11.0  # Formatage du code
+flake8==6.1.0   # Linting
+isort==5.12.0   # Tri des imports
