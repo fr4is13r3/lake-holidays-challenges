@@ -43,7 +43,7 @@ class User(Base):
     # Relationships
     profile: Mapped[Optional["UserProfile"]] = relationship("UserProfile", back_populates="user", uselist=False)
     season_memberships: Mapped[List["SeasonMember"]] = relationship("SeasonMember", back_populates="user")
-    challenge_submissions: Mapped[List["ChallengeSubmission"]] = relationship("ChallengeSubmission", back_populates="user")
+    challenge_submissions: Mapped[List["ChallengeSubmission"]] = relationship("ChallengeSubmission", back_populates="user", foreign_keys="[ChallengeSubmission.user_id]")
     scores: Mapped[List["Score"]] = relationship("Score", back_populates="user")
     user_badges: Mapped[List["UserBadge"]] = relationship("UserBadge", back_populates="user")
 

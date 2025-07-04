@@ -149,7 +149,7 @@ class ChallengeSubmission(Base):
     
     # Relationships
     challenge: Mapped["Challenge"] = relationship("Challenge", back_populates="submissions")
-    user: Mapped["User"] = relationship("User", back_populates="challenge_submissions")
+    user: Mapped["User"] = relationship("User", back_populates="challenge_submissions", foreign_keys=[user_id])
 
     def __repr__(self):
         return f"<ChallengeSubmission {self.user_id} for {self.challenge_id}>"

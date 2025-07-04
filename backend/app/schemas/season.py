@@ -23,11 +23,15 @@ class SeasonMemberRole(str, Enum):
 
 # Season Schemas
 class SeasonBase(BaseModel):
-    name: str = Field(..., min_length=1, max_length=100)
+    title: str = Field(..., min_length=1, max_length=200)
     description: Optional[str] = Field(None, max_length=500)
+    location: str = Field(..., min_length=1, max_length=200)
+    latitude: Optional[float] = Field(None, ge=-90, le=90)
+    longitude: Optional[float] = Field(None, ge=-180, le=180)
     start_date: datetime
     end_date: datetime
-    is_public: bool = True
+    cover_image_url: Optional[str] = Field(None, max_length=500)
+    is_active: bool = False
     max_members: Optional[int] = Field(None, gt=0)
 
 
@@ -36,11 +40,15 @@ class SeasonCreate(SeasonBase):
 
 
 class SeasonUpdate(BaseModel):
-    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    title: Optional[str] = Field(None, min_length=1, max_length=200)
     description: Optional[str] = Field(None, max_length=500)
+    location: Optional[str] = Field(None, min_length=1, max_length=200)
+    latitude: Optional[float] = Field(None, ge=-90, le=90)
+    longitude: Optional[float] = Field(None, ge=-180, le=180)
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
-    is_public: Optional[bool] = None
+    cover_image_url: Optional[str] = Field(None, max_length=500)
+    is_active: Optional[bool] = None
     max_members: Optional[int] = Field(None, gt=0)
     status: Optional[SeasonStatus] = None
 
@@ -48,7 +56,8 @@ class SeasonUpdate(BaseModel):
 class SeasonResponse(SeasonBase):
     id: str
     created_by: str
-    status: SeasonStatus
+    invitation_code: str
+    is_completed: bool = False
     member_count: int = 0
     created_at: datetime
     updated_at: Optional[datetime] = None

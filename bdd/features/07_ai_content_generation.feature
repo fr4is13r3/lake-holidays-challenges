@@ -75,7 +75,7 @@ Feature: Génération de contenu par Intelligence Artificielle
     When je demande un nouveau défi
     Then l'IA doit s'adapter aux conditions actuelles
     And proposer un défi faisable : "Écoutez et identifiez 3 sons de la forêt"
-    Instead of un défi visuel impossible
+    And éviter un défi visuel impossible
 
   @ai @multilingual_support
   Scenario: Support multilingue adaptatif

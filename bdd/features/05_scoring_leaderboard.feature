@@ -121,7 +121,7 @@ Feature: Système de scoring et classements
     When ses points sont attribués
     Then je dois voir son score se mettre à jour automatiquement
     And le classement doit se réorganiser si nécessaire
-    Sans que j'aie besoin de rafraîchir la page
+    And sans que j'aie besoin de rafraîchir la page
 
   @scoring @end_of_day_summary
   Scenario: Résumé de fin de journée
