@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, MapPin, Trophy, Camera, Star, Calendar, Users, Settings, Home, Target, Gift, ChevronRight, Plus } from 'lucide-react';
+import { User, MapPin, Trophy, Camera, Star, Home, Target, Plus } from 'lucide-react';
 
 // Mock data for demonstration
 const mockUser = {
@@ -78,44 +78,255 @@ const mockPhotos = [
 function App() {
   const [currentScreen, setCurrentScreen] = useState<'home' | 'challenges' | 'leaderboard' | 'photos' | 'profile'>('home');
   const [user, setUser] = useState<typeof mockUser>(mockUser);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+
+  // Authentication state
+  const [authMode, setAuthMode] = useState<'familyCode' | 'localAccount'>('familyCode');
+  const [formData, setFormData] = useState({
+    username: '',
+    password: '',
+    confirmPassword: ''
+  });
+  const [errors, setErrors] = useState<{[key: string]: string}>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Validation functions
+  const validateUsername = (username: string): string | null => {
+    if (username.length < 3) return "Le nom d'utilisateur doit contenir au moins 3 caractères";
+    if (username.length > 20) return "Le nom d'utilisateur ne doit pas dépasser 20 caractères";
+    if (!/^[a-zA-Z0-9_-]+$/.test(username)) return "Le nom d'utilisateur ne peut contenir que des lettres, chiffres, _ et -";
+    // Simulate uniqueness check (in real app, this would be an API call)
+    const existingUsers = ['admin', 'test', 'user', 'famille'];
+    if (existingUsers.includes(username.toLowerCase())) return "Ce nom d'utilisateur existe déjà";
+    return null;
+  };
+
+  const validatePassword = (password: string): string | null => {
+    if (password.length < 8) return "Le mot de passe doit contenir au moins 8 caractères";
+    if (!/(?=.*[a-z])/.test(password)) return "Le mot de passe doit contenir au moins une minuscule";
+    if (!/(?=.*[A-Z])/.test(password)) return "Le mot de passe doit contenir au moins une majuscule";
+    if (!/(?=.*\d)/.test(password)) return "Le mot de passe doit contenir au moins un chiffre";
+    if (!/(?=.*[!@#$%^&*(),.?":{}|<>])/.test(password)) return "Le mot de passe doit contenir au moins un caractère spécial";
+    return null;
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: {[key: string]: string} = {};
+    
+    const usernameError = validateUsername(formData.username);
+    if (usernameError) newErrors.username = usernameError;
+    
+    const passwordError = validatePassword(formData.password);
+    if (passwordError) newErrors.password = passwordError;
+    
+    if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = "Les mots de passe ne correspondent pas";
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleCreateAccount = async () => {
+    if (!validateForm()) return;
+    
+    setIsSubmitting(true);
+    
+    // Simulate account creation API call
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Update user with new account info
+      setUser({
+        ...mockUser,
+        name: formData.username,
+        id: Date.now() // Simple ID generation
+      });
+      
+      // Auto-login after account creation
+      setIsAuthenticated(true);
+    } catch {
+      setErrors({ general: "Erreur lors de la création du compte. Veuillez réessayer." });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    // Clear error when user starts typing
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
 
   // Authentication Screen
   const AuthScreen = () => (
-    <div className="min-h-screen bg-gradient-to-br from-orange-400 via-red-400 to-pink-400 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-orange-400 via-red-400 to-pink-400 flex items-center justify-center p-4" data-testid="auth-form">
       <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <div className="text-6xl mb-4">🏝️</div>
           <h1 className="text-3xl font-bold text-gray-800 mb-2">Game Holidays</h1>
           <p className="text-gray-600">Gamifiez vos vacances à La Réunion</p>
         </div>
-        
-        <div className="space-y-4">
-          <div className="text-center">
-            <h2 className="text-xl font-semibold text-gray-700 mb-4">Code Famille</h2>
-            <div className="flex justify-center space-x-3 mb-6">
-              {[1,2,3,4,5,6].map(i => (
-                <input
-                  key={i}
-                  type="text"
-                  maxLength={1}
-                  className="w-12 h-12 border-2 border-gray-300 rounded-xl text-center text-xl font-bold focus:border-orange-400 focus:outline-none"
-                />
-              ))}
-            </div>
-          </div>
-          
-          <button 
-            onClick={() => setIsAuthenticated(true)}
-            className="w-full bg-gradient-to-r from-orange-400 to-red-400 text-white py-4 rounded-2xl font-semibold text-lg hover:from-orange-500 hover:to-red-500 transition-all duration-200 transform hover:scale-105"
+
+        {/* Mode Toggle */}
+        <div className="flex bg-gray-100 rounded-2xl p-1 mb-6">
+          <button
+            onClick={() => setAuthMode('familyCode')}
+            className={`flex-1 py-2 px-4 rounded-xl font-medium transition-all duration-200 ${
+              authMode === 'familyCode'
+                ? 'bg-white text-gray-800 shadow-sm'
+                : 'text-gray-600'
+            }`}
           >
-            Se connecter
+            Code Famille
           </button>
-          
-          <button className="w-full border-2 border-gray-300 text-gray-700 py-4 rounded-2xl font-semibold text-lg hover:bg-gray-50 transition-all duration-200">
-            Créer une famille
+          <button
+            onClick={() => setAuthMode('localAccount')}
+            className={`flex-1 py-2 px-4 rounded-xl font-medium transition-all duration-200 ${
+              authMode === 'localAccount'
+                ? 'bg-white text-gray-800 shadow-sm'
+                : 'text-gray-600'
+            }`}
+          >
+            Créer un compte local
           </button>
         </div>
+        
+        {authMode === 'familyCode' ? (
+          // Family Code Mode
+          <div className="space-y-4">
+            <div className="text-center">
+              <h2 className="text-xl font-semibold text-gray-700 mb-4">Code Famille</h2>
+              <div className="flex justify-center space-x-3 mb-6">
+                {[1,2,3,4,5,6].map(i => (
+                  <input
+                    key={i}
+                    type="text"
+                    maxLength={1}
+                    className="w-12 h-12 border-2 border-gray-300 rounded-xl text-center text-xl font-bold focus:border-orange-400 focus:outline-none"
+                  />
+                ))}
+              </div>
+            </div>
+            
+            <button 
+              onClick={() => setIsAuthenticated(true)}
+              className="w-full bg-gradient-to-r from-orange-400 to-red-400 text-white py-4 rounded-2xl font-semibold text-lg hover:from-orange-500 hover:to-red-500 transition-all duration-200 transform hover:scale-105"
+            >
+              Se connecter
+            </button>
+            
+            <button className="w-full border-2 border-gray-300 text-gray-700 py-4 rounded-2xl font-semibold text-lg hover:bg-gray-50 transition-all duration-200">
+              Créer une famille
+            </button>
+          </div>
+        ) : (
+          // Local Account Creation Mode
+          <div className="space-y-4">
+            <div className="text-center mb-6">
+              <h2 className="text-xl font-semibold text-gray-700">Créer un compte local</h2>
+            </div>
+
+            {/* General Error */}
+            {errors.general && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl">
+                {errors.general}
+              </div>
+            )}
+
+            {/* Username Field */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Nom d'utilisateur
+              </label>
+              <input
+                type="text"
+                data-testid="username"
+                value={formData.username}
+                onChange={(e) => handleInputChange('username', e.target.value)}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors ${
+                  errors.username
+                    ? 'border-red-300 focus:border-red-400'
+                    : 'border-gray-300 focus:border-orange-400'
+                }`}
+                placeholder="papa_vacances"
+              />
+              {errors.username && (
+                <p className="text-red-600 text-sm mt-1">{errors.username}</p>
+              )}
+            </div>
+
+            {/* Password Field */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Mot de passe
+              </label>
+              <input
+                type="password"
+                data-testid="password"
+                value={formData.password}
+                onChange={(e) => handleInputChange('password', e.target.value)}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors ${
+                  errors.password
+                    ? 'border-red-300 focus:border-red-400'
+                    : 'border-gray-300 focus:border-orange-400'
+                }`}
+                placeholder="MonMotDePasse123!"
+              />
+              {errors.password && (
+                <p className="text-red-600 text-sm mt-1">{errors.password}</p>
+              )}
+            </div>
+
+            {/* Confirm Password Field */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Confirmer le mot de passe
+              </label>
+              <input
+                type="password"
+                data-testid="confirm-password"
+                value={formData.confirmPassword}
+                onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors ${
+                  errors.confirmPassword
+                    ? 'border-red-300 focus:border-red-400'
+                    : 'border-gray-300 focus:border-orange-400'
+                }`}
+                placeholder="Confirmer votre mot de passe"
+              />
+              {errors.confirmPassword && (
+                <p className="text-red-600 text-sm mt-1">{errors.confirmPassword}</p>
+              )}
+            </div>
+
+            {/* Create Account Button */}
+            <button
+              onClick={handleCreateAccount}
+              disabled={isSubmitting}
+              className={`w-full py-4 rounded-2xl font-semibold text-lg transition-all duration-200 transform hover:scale-105 ${
+                isSubmitting
+                  ? 'bg-gray-400 text-white cursor-not-allowed'
+                  : 'bg-gradient-to-r from-green-400 to-blue-400 text-white hover:from-green-500 hover:to-blue-500'
+              }`}
+            >
+              {isSubmitting ? 'Création...' : 'Créer le compte'}
+            </button>
+
+            {/* Password Requirements */}
+            <div className="bg-gray-50 rounded-xl p-4">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">Exigences du mot de passe :</h4>
+              <ul className="text-xs text-gray-600 space-y-1">
+                <li>• Au moins 8 caractères</li>
+                <li>• Une majuscule et une minuscule</li>
+                <li>• Un chiffre</li>
+                <li>• Un caractère spécial (!@#$%^&*...)</li>
+              </ul>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
