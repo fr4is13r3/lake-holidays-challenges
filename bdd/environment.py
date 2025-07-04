@@ -24,32 +24,32 @@ def before_all(context):
     
     context.base_url = url_mapping.get(context.environment)
     
-    # Configuration des utilisateurs de test
+    # Configuration des utilisateurs de test (depuis behave.ini)
     context.test_users = {
         "papa_test": {
-            "email": "papa.test@example.com",
-            "password": "TestPass123!",
+            "email": context.config.userdata.get('test_user_papa_email', 'papa.test@example.com'),
+            "password": context.config.userdata.get('test_user_papa_password', 'TestPass123!'),
             "name": "Papa Aventurier",
             "age": 45,
             "preferences": ["Sport", "Histoire"]
         },
         "maman_test": {
-            "email": "maman.test@example.com", 
-            "password": "TestPass123!",
+            "email": context.config.userdata.get('test_user_maman_email', 'maman.test@example.com'), 
+            "password": context.config.userdata.get('test_user_maman_password', 'TestPass123!'),
             "name": "Maman Photographe",
             "age": 45,
             "preferences": ["Photo", "Culture"]
         },
         "ado1_test": {
-            "email": "ado1.test@example.com",
-            "password": "TestPass123!",
+            "email": context.config.userdata.get('test_user_ado1_email', 'ado1.test@example.com'),
+            "password": context.config.userdata.get('test_user_ado1_password', 'TestPass123!'),
             "name": "Ado1 Sportif", 
             "age": 18,
             "preferences": ["Sport", "Gaming"]
         },
         "ado2_test": {
-            "email": "ado2.test@example.com",
-            "password": "TestPass123!",
+            "email": context.config.userdata.get('test_user_ado2_email', 'ado2.test@example.com'),
+            "password": context.config.userdata.get('test_user_ado2_password', 'TestPass123!'),
             "name": "Ado2 Créatif",
             "age": 15,
             "preferences": ["Art", "Photo"]
