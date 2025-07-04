@@ -38,6 +38,9 @@ class Season(Base):
     # Media
     cover_image_url: Mapped[Optional[str]] = Column(String(500), nullable=True)
     
+    # Season limits
+    max_members: Mapped[Optional[int]] = Column(Integer, nullable=True)
+    
     # Invitation system
     invitation_code: Mapped[str] = Column(String(8), unique=True, nullable=False, index=True)
     
@@ -66,9 +69,13 @@ class Season(Base):
     @property
     def member_count(self) -> int:
         """Get number of active members."""
-        if hasattr(self, 'members') and self.members:
-            return len([m for m in self.members if m.is_active])
-        return 0
+        try:
+            if hasattr(self, 'members') and self.members is not None:
+                return len([m for m in self.members if m.is_active])
+            return 0
+        except Exception:
+            # Return 0 if there's any issue accessing members
+            return 0
 
     def __repr__(self):
         return f"<Season {self.title} ({self.start_date} - {self.end_date})>"

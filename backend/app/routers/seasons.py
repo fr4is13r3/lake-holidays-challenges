@@ -24,7 +24,32 @@ async def get_seasons(
     """Get list of seasons."""
     season_service = SeasonService(db)
     seasons = await season_service.get_seasons(skip=skip, limit=limit)
-    return seasons
+    
+    # Convert Season models to SeasonResponse schemas
+    season_responses = []
+    for season in seasons:
+        season_response = SeasonResponse(
+            id=str(season.id),
+            title=season.title,
+            description=season.description,
+            location=season.location,
+            latitude=season.latitude,
+            longitude=season.longitude,
+            start_date=season.start_date,
+            end_date=season.end_date,
+            cover_image_url=season.cover_image_url,
+            is_active=season.is_active,
+            max_members=season.max_members,
+            created_by=str(season.created_by),
+            invitation_code=season.invitation_code,
+            is_completed=season.is_completed,
+            member_count=season.member_count,  # Now safe because relations are loaded
+            created_at=season.created_at,
+            updated_at=season.updated_at
+        )
+        season_responses.append(season_response)
+    
+    return season_responses
 
 
 @router.post("/", response_model=SeasonResponse)
@@ -36,7 +61,27 @@ async def create_season(
     """Create a new season."""
     season_service = SeasonService(db)
     season = await season_service.create_season(season_data, current_user.id)
-    return season
+    
+    # Convert to response schema
+    return SeasonResponse(
+        id=str(season.id),
+        title=season.title,
+        description=season.description,
+        location=season.location,
+        latitude=season.latitude,
+        longitude=season.longitude,
+        start_date=season.start_date,
+        end_date=season.end_date,
+        cover_image_url=season.cover_image_url,
+        is_active=season.is_active,
+        max_members=season.max_members,
+        created_by=str(season.created_by),
+        invitation_code=season.invitation_code,
+        is_completed=season.is_completed,
+        member_count=season.member_count,
+        created_at=season.created_at,
+        updated_at=season.updated_at
+    )
 
 
 @router.get("/{season_id}", response_model=SeasonResponse)
@@ -54,7 +99,26 @@ async def get_season(
             detail="Season not found"
         )
     
-    return season
+    # Convert to response schema
+    return SeasonResponse(
+        id=str(season.id),
+        title=season.title,
+        description=season.description,
+        location=season.location,
+        latitude=season.latitude,
+        longitude=season.longitude,
+        start_date=season.start_date,
+        end_date=season.end_date,
+        cover_image_url=season.cover_image_url,
+        is_active=season.is_active,
+        max_members=season.max_members,
+        created_by=str(season.created_by),
+        invitation_code=season.invitation_code,
+        is_completed=season.is_completed,
+        member_count=season.member_count,
+        created_at=season.created_at,
+        updated_at=season.updated_at
+    )
 
 
 @router.post("/{season_id}/join", response_model=SeasonMemberResponse)

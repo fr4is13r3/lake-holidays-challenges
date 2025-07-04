@@ -54,6 +54,7 @@ class SeasonService:
             start_date=start_date,
             end_date=end_date,
             cover_image_url=season_data.cover_image_url,
+            max_members=season_data.max_members,
             invitation_code=invitation_code,
             is_active=season_data.is_active,
             created_by=created_by
@@ -75,18 +76,24 @@ class SeasonService:
         return season
     
     async def get_season_by_id(self, season_id: str) -> Optional[Season]:
-        """Get season by ID."""
+        """Get season by ID with relationships loaded."""
         result = await self.db.execute(
-            select(Season).where(Season.id == season_id)
+            select(Season)
+            .options(selectinload(Season.members))
+            .where(Season.id == season_id)
         )
         return result.scalar_one_or_none()
     
     async def get_seasons(self, skip: int = 0, limit: int = 50) -> List[Season]:
-        """Get list of seasons."""
+        """Get list of seasons with relationships loaded."""
         result = await self.db.execute(
-            select(Season).offset(skip).limit(limit)
+            select(Season)
+            .options(selectinload(Season.members))
+            .offset(skip)
+            .limit(limit)
+            .order_by(Season.created_at.desc())
         )
-        return result.scalars().all()
+        return list(result.scalars().all())
     
     async def join_season(self, season_id: str, user_id: str) -> Optional[SeasonMember]:
         """Join a user to a season."""
