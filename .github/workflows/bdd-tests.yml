@@ -35,7 +35,11 @@ jobs:
         cd bdd
         pip install -r requirements.txt
         
-    - name: 🔧 Configuration Chrome
+    - name: � Création répertoire rapports
+      run: |
+        mkdir -p reports/screenshots
+        
+    - name: �🔧 Configuration Chrome
       uses: browser-actions/setup-chrome@latest
       
     - name: ⚡ Exécution tests de smoke
@@ -88,7 +92,11 @@ jobs:
         cd bdd
         pip install -r requirements.txt
         
-    - name: 🔧 Configuration navigateur
+    - name: � Création répertoire rapports
+      run: |
+        mkdir -p reports/screenshots
+        
+    - name: �🔧 Configuration navigateur
       uses: browser-actions/setup-chrome@latest
       
     - name: 🧪 Tests ${{ matrix.feature }}
@@ -174,7 +182,11 @@ jobs:
         cd bdd
         pip install -r requirements.txt
         
-    - name: 🔧 Configuration Chrome
+    - name: � Création répertoire rapports
+      run: |
+        mkdir -p reports/screenshots
+        
+    - name: �🔧 Configuration Chrome
       uses: browser-actions/setup-chrome@latest
       
     - name: 🧪 Tests E2E complets
@@ -223,6 +235,10 @@ jobs:
       run: |
         cd bdd
         pip install -r requirements.txt
+        
+    - name: 📁 Création répertoire rapports
+      run: |
+        mkdir -p reports/screenshots
         
     - name: ⚡ Tests de performance
       run: |
