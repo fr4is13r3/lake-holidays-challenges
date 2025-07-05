@@ -1,5 +1,91 @@
 # User Stories - Application Vacances Gamifiées
 
+## Epic 0: Design
+
+### US024 - Initialise le Backlog
+**En tant que** Product Owner
+**Je veux** initialiser et structurer le backlog produit
+**Afin de** planifier efficacement le développement de l'application
+
+**Critères d'acceptation :**
+- [ ] Création de la structure du backlog dans l'outil de gestion choisi
+- [ ] Définition des Epics principaux
+- [ ] Priorisation initiale des User Stories
+- [ ] Estimation des charges de travail
+- [ ] Configuration des labels et catégories
+
+**Tests BDD :** `features/00_project_setup.feature` - Scenario "Initialisation du backlog"
+
+---
+
+### US025 - Initialise le Design System
+**En tant que** Designer/Développeur
+**Je veux** créer un design system cohérent
+**Afin d'** assurer la cohérence visuelle et l'efficacité du développement
+
+**Critères d'acceptation :**
+- [ ] Définition de la palette de couleurs
+- [ ] Création des composants UI de base (boutons, inputs, cards)
+- [ ] Établissement de la typographie
+- [ ] Définition des espacements et grille
+- [ ] Documentation des composants réutilisables
+- [ ] Création d'une bibliothèque de composants
+
+**Tests BDD :** `features/00_project_setup.feature` - Scenario "Design system cohérent"
+
+---
+
+### US026 - Initialise les tests fonctionnels
+**En tant que** QA/Développeur
+**Je veux** mettre en place la structure des tests fonctionnels
+**Afin de** garantir la qualité et la fiabilité de l'application
+
+**Critères d'acceptation :**
+- [ ] Configuration de l'environnement de test (Cucumber/Gherkin)
+- [ ] Création de la structure des fichiers de features
+- [ ] Mise en place des step definitions de base
+- [ ] Configuration des tests d'intégration
+- [ ] Définition des stratégies de test automatisé
+- [ ] Documentation des procédures de test
+
+**Tests BDD :** `features/00_project_setup.feature` - Scenario "Infrastructure de tests"
+
+---
+
+### US027 - Initialise le backend
+**En tant que** Développeur Backend
+**Je veux** mettre en place l'architecture backend
+**Afin de** préparer l'infrastructure pour les fonctionnalités applicatives
+
+**Critères d'acceptation :**
+- [ ] Configuration de l'environnement de développement
+- [ ] Mise en place de la base de données
+- [ ] Configuration des APIs REST de base
+- [ ] Mise en place de l'authentification JWT
+- [ ] Configuration des middlewares de sécurité
+- [ ] Documentation des endpoints API
+
+**Tests BDD :** `features/00_project_setup.feature` - Scenario "Backend fonctionnel"
+
+---
+
+### US028 - Crée l'architecture
+**En tant qu'** Architecte/Lead Developer
+**Je veux** définir l'architecture technique complète
+**Afin de** structurer le développement et assurer la scalabilité
+
+**Critères d'acceptation :**
+- [ ] Définition de l'architecture globale (frontend/backend/base de données)
+- [ ] Choix des technologies et frameworks
+- [ ] Définition des patterns architecturaux
+- [ ] Configuration de l'environnement de déploiement
+- [ ] Mise en place de l'intégration continue
+- [ ] Documentation technique de l'architecture
+
+**Tests BDD :** `features/00_project_setup.feature` - Scenario "Architecture complète"
+
+---
+
 ## Epic 1: Authentification et Gestion des Utilisateurs
 
 ### US001 - Connexion avec compte local
@@ -392,6 +478,13 @@
 
 ## Estimation et Priorisation
 
+### Sprint 0 (Phase de Setup) - Infrastructure
+- **US024** : Initialise le Backlog ⭐⭐⭐
+- **US025** : Initialise le Design System ⭐⭐⭐
+- **US026** : Initialise les tests fonctionnels ⭐⭐⭐
+- **US027** : Initialise le backend ⭐⭐⭐
+- **US028** : Crée l'architecture ⭐⭐⭐
+
 ### Sprint 1 (Semaine 1) - MVP
 - **US001-003** : Authentification de base ⭐⭐⭐
 - **US004-005** : Profils utilisateur ⭐⭐⭐
@@ -420,4 +513,4 @@
 
 ## Import GitHub Projects
 
-Ce fichier peut être importé dans GitHub Projects en créant des issues pour chaque User Story avec les labels appropriés : `epic:authentication`, `priority:high`, `story`, etc.
+Ce fichier peut être importé dans GitHub Projects en créant des issues pour chaque User Story avec les labels appropriés : `epic:design`, `epic:authentication`, `priority:high`, `story`, etc.
