@@ -68,10 +68,49 @@ check_prerequisites() {
 get_terraform_outputs() {
     log_info "Récupération des outputs Terraform..."
     
+    # Option 1: Utiliser les variables d'environnement si disponibles (GitHub Actions)
+    if [ -n "${AZURE_RESOURCE_GROUP:-}" ] && [ -n "${AKS_CLUSTER_NAME:-}" ]; then
+        log_info "Utilisation des variables d'environnement GitHub Actions..."
+        export RESOURCE_GROUP="$AZURE_RESOURCE_GROUP"
+        export AKS_CLUSTER_NAME="$AKS_CLUSTER_NAME"
+        export CONTAINER_REGISTRY="${AZURE_CONTAINER_REGISTRY:-}"
+        export KEY_VAULT_NAME="${KEY_VAULT_NAME:-}"
+        export STORAGE_ACCOUNT_NAME="${STORAGE_ACCOUNT_NAME:-}"
+        export SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+        export TENANT_ID=$(az account show --query tenantId -o tsv)
+        log_success "Variables d'environnement GitHub Actions utilisées"
+        return 0
+    fi
+    
+    # Option 2: Utiliser Terraform outputs depuis le backend remote
     cd "$TERRAFORM_DIR"
     
-    if [ ! -f "terraform.tfstate" ]; then
-        log_error "Aucun état Terraform trouvé. Exécutez d'abord 'terraform apply'."
+    # Charger la configuration du backend si elle existe
+    if [ -f "$PROJECT_ROOT/.env.terraform" ]; then
+        log_info "Chargement de la configuration Terraform..."
+        source "$PROJECT_ROOT/.env.terraform"
+    fi
+    
+    # Initialiser Terraform avec le backend remote
+    log_info "Initialisation de Terraform avec backend remote..."
+    if [ -f "$PROJECT_ROOT/.terraform-backend.conf" ]; then
+        terraform init -backend-config="$PROJECT_ROOT/.terraform-backend.conf" -input=false > /dev/null
+    else
+        terraform init -input=false > /dev/null
+    fi
+    
+    if [ $? -ne 0 ]; then
+        log_error "Impossible d'initialiser Terraform. Vérifiez la configuration du backend."
+        exit 1
+    fi
+    
+    # Tester si on peut récupérer les outputs (au lieu de vérifier le fichier tfstate local)
+    log_info "Vérification de l'état Terraform remote..."
+    if ! terraform output resource_group_name &> /dev/null; then
+        log_error "Impossible de récupérer les outputs Terraform."
+        log_error "Vérifiez que l'infrastructure est déployée et que vous avez accès au backend remote."
+        log_info "Exécutez d'abord: ./scripts/deploy-infrastructure.sh $ENVIRONMENT apply"
+        log_info "Ou configurez les variables d'environnement directement (voir GitHub Actions secrets)"
         exit 1
     fi
     
@@ -86,7 +125,7 @@ get_terraform_outputs() {
     export SUBSCRIPTION_ID=$(az account show --query id -o tsv)
     export TENANT_ID=$(az account show --query tenantId -o tsv)
     
-    log_success "Outputs Terraform récupérés"
+    log_success "Outputs Terraform récupérés depuis le backend remote"
 }
 
 configure_kubectl() {
@@ -119,10 +158,12 @@ substitute_variables() {
     BACKEND_DOMAIN="${BACKEND_DOMAIN:-api-${ENVIRONMENT}.${AKS_CLUSTER_NAME}.azure.com}"
     
     # OpenAI endpoint (optionnel)
+    cd "$TERRAFORM_DIR"
     if terraform output openai_endpoint &> /dev/null; then
         OPENAI_ENDPOINT=$(terraform output -raw openai_endpoint)
     else
         OPENAI_ENDPOINT=""
+        log_warning "OpenAI endpoint non configuré dans Terraform"
     fi
     
     # Récupérer l'identity client ID pour Workload Identity

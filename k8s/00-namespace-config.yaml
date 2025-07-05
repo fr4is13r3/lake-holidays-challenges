@@ -1,0 +1,79 @@
+# Namespace pour l'application Lake Holidays Challenge
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: lake-holidays-{{ENVIRONMENT}}
+  labels:
+    app: lake-holidays
+    environment: "{{ENVIRONMENT}}"
+    managed-by: terraform
+---
+# ServiceAccount pour les applications
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: lake-holidays-sa
+  namespace: lake-holidays-{{ENVIRONMENT}}
+  labels:
+    app: lake-holidays
+    component: serviceaccount
+  annotations:
+    azure.workload.identity/client-id: "{{AKS_CLIENT_ID}}"
+---
+# ConfigMap pour la configuration commune
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lake-holidays-config
+  namespace: lake-holidays-{{ENVIRONMENT}}
+  labels:
+    app: lake-holidays
+    component: config
+data:
+  # Configuration générale
+  ENVIRONMENT: "{{ENVIRONMENT}}"
+  APP_NAME: "lake-holidays"
+  LOG_LEVEL: "INFO"
+  
+  # Configuration des services intégrés (PostgreSQL et Redis dans le backend)
+  POSTGRES_DB: "lake_holidays"
+  POSTGRES_HOST: "localhost"
+  POSTGRES_PORT: "5432"
+  REDIS_HOST: "localhost" 
+  REDIS_PORT: "6379"
+  
+  # Configuration Azure
+  AZURE_STORAGE_ACCOUNT_NAME: "{{STORAGE_ACCOUNT_NAME}}"
+  AZURE_KEY_VAULT_NAME: "{{KEY_VAULT_NAME}}"
+  
+  # Configuration OpenAI (si activé)
+  AZURE_OPENAI_ENDPOINT: "{{OPENAI_ENDPOINT}}"
+  OPENAI_API_VERSION: "2023-12-01-preview"
+  
+  # Configuration des uploads
+  UPLOAD_MAX_SIZE: "10485760"  # 10MB
+  ALLOWED_EXTENSIONS: "jpg,jpeg,png,gif,mp4,avi,mp3,wav,pdf,doc,docx"
+  
+  # URLs frontend (sera mis à jour après déploiement)
+  FRONTEND_URL: "https://{{FRONTEND_DOMAIN}}"
+  BACKEND_URL: "https://{{BACKEND_DOMAIN}}"
+---
+# Secret pour les variables sensibles (à configurer avec Key Vault CSI Driver)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: lake-holidays-secrets
+  namespace: lake-holidays-{{ENVIRONMENT}}
+  labels:
+    app: lake-holidays
+    component: secrets
+type: Opaque
+stringData:
+  # Sera rempli par Key Vault CSI Driver
+  JWT_SECRET_KEY: ""
+  POSTGRES_PASSWORD: ""
+  REDIS_PASSWORD: ""
+  GOOGLE_CLIENT_SECRET: ""
+  MICROSOFT_CLIENT_SECRET: ""
+  OPENAI_API_KEY: ""
+  AZURE_STORAGE_CONNECTION_STRING: ""

@@ -1,0 +1,94 @@
+# Déploiement Frontend - React/Vite avec Nginx
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: lake-holidays-{{ENVIRONMENT}}
+  labels:
+    app: lake-holidays
+    component: frontend
+    version: "{{VERSION}}"
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: lake-holidays
+      component: frontend
+  template:
+    metadata:
+      labels:
+        app: lake-holidays
+        component: frontend
+        version: "{{VERSION}}"
+    spec:
+      serviceAccountName: lake-holidays-sa
+      containers:
+      - name: frontend
+        image: "{{CONTAINER_REGISTRY}}/lake-holidays-frontend:{{VERSION}}"
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP
+        env:
+        # Configuration API Backend
+        - name: VITE_API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: lake-holidays-config
+              key: BACKEND_URL
+        - name: VITE_ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: lake-holidays-config
+              key: ENVIRONMENT
+        # Configuration des ressources
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        # Probes de santé
+        livenessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+---
+# Service pour exposer le frontend
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: lake-holidays-{{ENVIRONMENT}}
+  labels:
+    app: lake-holidays
+    component: frontend
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+    protocol: TCP
+  selector:
+    app: lake-holidays
+    component: frontend

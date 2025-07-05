@@ -1,0 +1,130 @@
+# Ingress pour exposer les applications via Application Gateway
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: lake-holidays-ingress
+  namespace: lake-holidays-{{ENVIRONMENT}}
+  labels:
+    app: lake-holidays
+    component: ingress
+  annotations:
+    # Configuration Application Gateway Ingress Controller (AGIC)
+    kubernetes.io/ingress.class: azure/application-gateway
+    appgw.ingress.kubernetes.io/ssl-redirect: "true"
+    appgw.ingress.kubernetes.io/connection-draining: "true"
+    appgw.ingress.kubernetes.io/connection-draining-timeout: "30"
+    appgw.ingress.kubernetes.io/cookie-based-affinity: "false"
+    appgw.ingress.kubernetes.io/request-timeout: "30"
+    appgw.ingress.kubernetes.io/backend-path-prefix: "/"
+    
+    # Configuration des headers
+    appgw.ingress.kubernetes.io/backend-hostname: "{{BACKEND_DOMAIN}}"
+    
+    # Configuration WAF (Web Application Firewall)
+    appgw.ingress.kubernetes.io/waf-policy-for-path: "/subscriptions/{{SUBSCRIPTION_ID}}/resourceGroups/{{RESOURCE_GROUP}}/providers/Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies/{{WAF_POLICY_NAME}}"
+spec:
+  tls:
+  - hosts:
+    - "{{FRONTEND_DOMAIN}}"
+    - "{{BACKEND_DOMAIN}}"
+    secretName: lake-holidays-tls
+  rules:
+  # Frontend - Interface utilisateur React
+  - host: "{{FRONTEND_DOMAIN}}"
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend
+            port:
+              number: 80
+  
+  # Backend - API FastAPI
+  - host: "{{BACKEND_DOMAIN}}"
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: backend
+            port:
+              number: 80
+---
+# NetworkPolicy pour sécuriser les communications
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: lake-holidays-netpol
+  namespace: lake-holidays-{{ENVIRONMENT}}
+  labels:
+    app: lake-holidays
+    component: security
+spec:
+  podSelector:
+    matchLabels:
+      app: lake-holidays
+  policyTypes:
+  - Ingress
+  - Egress
+  
+  # Règles d'entrée
+  ingress:
+  # Autoriser le trafic depuis l'Application Gateway
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: TCP
+      port: 80
+    - protocol: TCP
+      port: 8000
+  
+  # Communication interne entre pods
+  - from:
+    - podSelector:
+        matchLabels:
+          app: lake-holidays
+    ports:
+    - protocol: TCP
+      port: 80
+    - protocol: TCP
+      port: 8000
+    - protocol: TCP
+      port: 5432
+    - protocol: TCP
+      port: 6379
+  
+  # Règles de sortie
+  egress:
+  # Communication DNS
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  
+  # Communication vers Azure services (Key Vault, Storage, OpenAI)
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+  
+  # Communication interne entre pods
+  - to:
+    - podSelector:
+        matchLabels:
+          app: lake-holidays
+    ports:
+    - protocol: TCP
+      port: 80
+    - protocol: TCP
+      port: 8000
+    - protocol: TCP
+      port: 5432
+    - protocol: TCP
+      port: 6379

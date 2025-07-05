@@ -1,0 +1,52 @@
+# PersistentVolumeClaims pour la persistance des données
+---
+# PVC pour les données PostgreSQL
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: lake-holidays-{{ENVIRONMENT}}
+  labels:
+    app: lake-holidays
+    component: postgres
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: managed-csi
+  resources:
+    requests:
+      storage: 10Gi
+---
+# PVC pour les données Redis
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-pvc
+  namespace: lake-holidays-{{ENVIRONMENT}}
+  labels:
+    app: lake-holidays
+    component: redis
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: managed-csi
+  resources:
+    requests:
+      storage: 5Gi
+---
+# PVC pour les fichiers uploadés (temporaire, sera remplacé par Azure Storage)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: uploads-pvc
+  namespace: lake-holidays-{{ENVIRONMENT}}
+  labels:
+    app: lake-holidays
+    component: storage
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: azurefile-csi
+  resources:
+    requests:
+      storage: 20Gi

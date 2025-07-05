@@ -1,0 +1,328 @@
+name: CI/CD Pipeline - Lake Holidays Challenge AKS
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'feature/*'
+  pull_request:
+    branches:
+      - main
+      - develop
+
+env:
+  REGISTRY_NAME: ${{ secrets.AZURE_CONTAINER_REGISTRY }}
+  CLUSTER_NAME: ${{ secrets.AKS_CLUSTER_NAME }}
+  CLUSTER_RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
+  NAMESPACE: lake-holidays-${{ github.ref_name == 'main' && 'prod' || github.ref_name == 'develop' && 'staging' || 'dev' }}
+
+jobs:
+  # =============================================================================
+  # JOB: TESTS BACKEND
+  # =============================================================================
+  backend-tests:
+    name: 🧪 Tests Backend
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🐍 Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+        
+    - name: 📦 Install dependencies
+      working-directory: ./backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: 🧪 Run tests
+      working-directory: ./backend
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+        REDIS_URL: redis://localhost:6379
+        JWT_SECRET_KEY: test-secret-key
+      run: |
+        python -m pytest tests/ -v --cov=app --cov-report=xml
+        
+    - name: 📊 Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./backend/coverage.xml
+        flags: backend
+
+  # =============================================================================
+  # JOB: TESTS FRONTEND
+  # =============================================================================
+  frontend-tests:
+    name: 🧪 Tests Frontend
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 📦 Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: ./frontend/package-lock.json
+        
+    - name: 📦 Install dependencies
+      working-directory: ./frontend
+      run: npm ci
+      
+    - name: 🧪 Run tests
+      working-directory: ./frontend
+      run: npm run test:ci
+      
+    - name: 🔍 Lint
+      working-directory: ./frontend
+      run: npm run lint
+
+  # =============================================================================
+  # JOB: BUILD ET PUSH DOCKER IMAGES
+  # =============================================================================
+  build-and-push:
+    name: 🐳 Build & Push Images
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/feature/')
+    
+    outputs:
+      backend-image: ${{ steps.build-backend.outputs.image }}
+      frontend-image: ${{ steps.build-frontend.outputs.image }}
+      image-tag: ${{ steps.generate-tag.outputs.tag }}
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🏷️ Generate image tag
+      id: generate-tag
+      run: |
+        if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          echo "tag=v$(date +%Y%m%d)-${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+        elif [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+          echo "tag=staging-${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+        else
+          echo "tag=feature-${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+        fi
+      
+    - name: 🔐 Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+        
+    - name: 🐳 Login to Azure Container Registry
+      run: |
+        az acr login --name ${{ env.REGISTRY_NAME }}
+    
+    - name: 🏗️ Build and push backend image
+      id: build-backend
+      working-directory: ./backend
+      run: |
+        IMAGE_NAME="${{ env.REGISTRY_NAME }}.azurecr.io/lake-holidays-backend:${{ steps.generate-tag.outputs.tag }}"
+        
+        docker build \
+          --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+          --build-arg VCS_REF=${GITHUB_SHA::8} \
+          --build-arg VERSION=${{ steps.generate-tag.outputs.tag }} \
+          -t $IMAGE_NAME \
+          .
+        
+        docker push $IMAGE_NAME
+        echo "image=$IMAGE_NAME" >> $GITHUB_OUTPUT
+        
+    - name: 🏗️ Build and push frontend image
+      id: build-frontend
+      working-directory: ./frontend
+      run: |
+        IMAGE_NAME="${{ env.REGISTRY_NAME }}.azurecr.io/lake-holidays-frontend:${{ steps.generate-tag.outputs.tag }}"
+        
+        # Configuration build pour l'environnement
+        if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          BUILD_ENV="production"
+        elif [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+          BUILD_ENV="staging"
+        else
+          BUILD_ENV="development"
+        fi
+        
+        docker build \
+          --build-arg BUILD_ENV=$BUILD_ENV \
+          --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+          --build-arg VCS_REF=${GITHUB_SHA::8} \
+          --build-arg VERSION=${{ steps.generate-tag.outputs.tag }} \
+          -t $IMAGE_NAME \
+          .
+        
+        docker push $IMAGE_NAME
+        echo "image=$IMAGE_NAME" >> $GITHUB_OUTPUT
+
+  # =============================================================================
+  # JOB: DÉPLOIEMENT SUR AKS
+  # =============================================================================
+  deploy-to-aks:
+    name: 🚀 Deploy to AKS
+    runs-on: ubuntu-latest
+    needs: [build-and-push]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    
+    environment:
+      name: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+      url: https://${{ steps.deploy.outputs.frontend-url }}
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🔐 Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+        
+    - name: ⚙️ Setup kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'latest'
+        
+    - name: 🔧 Configure kubectl for AKS
+      run: |
+        az aks get-credentials \
+          --resource-group ${{ env.CLUSTER_RESOURCE_GROUP }} \
+          --name ${{ env.CLUSTER_NAME }} \
+          --overwrite-existing
+        
+    - name: 📦 Deploy to Kubernetes
+      id: deploy
+      env:
+        ENVIRONMENT: ${{ github.ref_name == 'main' && 'prod' || 'staging' }}
+        VERSION: ${{ needs.build-and-push.outputs.image-tag }}
+        CONTAINER_REGISTRY: ${{ env.REGISTRY_NAME }}.azurecr.io
+        KEY_VAULT_NAME: ${{ secrets.KEY_VAULT_NAME }}
+        STORAGE_ACCOUNT_NAME: ${{ secrets.STORAGE_ACCOUNT_NAME }}
+        FRONTEND_DOMAIN: frontend-${{ github.ref_name == 'main' && 'prod' || 'staging' }}.${{ secrets.DOMAIN_SUFFIX }}
+        BACKEND_DOMAIN: api-${{ github.ref_name == 'main' && 'prod' || 'staging' }}.${{ secrets.DOMAIN_SUFFIX }}
+      run: |
+        # Créer le namespace s'il n'existe pas
+        kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+        
+        # Substituer les variables et appliquer les manifests
+        for manifest in k8s/*.yaml; do
+          # Substitution des variables
+          sed \
+            -e "s/{{ENVIRONMENT}}/$ENVIRONMENT/g" \
+            -e "s/{{VERSION}}/$VERSION/g" \
+            -e "s/{{CONTAINER_REGISTRY}}/$CONTAINER_REGISTRY/g" \
+            -e "s/{{KEY_VAULT_NAME}}/$KEY_VAULT_NAME/g" \
+            -e "s/{{STORAGE_ACCOUNT_NAME}}/$STORAGE_ACCOUNT_NAME/g" \
+            -e "s/{{FRONTEND_DOMAIN}}/$FRONTEND_DOMAIN/g" \
+            -e "s/{{BACKEND_DOMAIN}}/$BACKEND_DOMAIN/g" \
+            -e "s/{{SUBSCRIPTION_ID}}/$(az account show --query id -o tsv)/g" \
+            -e "s/{{RESOURCE_GROUP}}/${{ env.CLUSTER_RESOURCE_GROUP }}/g" \
+            -e "s/{{TENANT_ID}}/$(az account show --query tenantId -o tsv)/g" \
+            "$manifest" | kubectl apply -f -
+        done
+        
+        # Attendre que les déploiements soient prêts
+        kubectl rollout status deployment/backend -n ${{ env.NAMESPACE }} --timeout=600s
+        kubectl rollout status deployment/frontend -n ${{ env.NAMESPACE }} --timeout=600s
+        
+        # Récupérer l'URL du frontend
+        echo "frontend-url=$FRONTEND_DOMAIN" >> $GITHUB_OUTPUT
+        
+    - name: 🧪 Health check
+      run: |
+        # Vérifier que les pods sont en cours d'exécution
+        kubectl get pods -n ${{ env.NAMESPACE }}
+        
+        # Vérifier les services
+        kubectl get services -n ${{ env.NAMESPACE }}
+        
+        # Vérifier l'ingress
+        kubectl get ingress -n ${{ env.NAMESPACE }}
+
+  # =============================================================================
+  # JOB: TESTS POST-DÉPLOIEMENT
+  # =============================================================================
+  post-deployment-tests:
+    name: 🧪 Tests Post-Déploiement
+    runs-on: ubuntu-latest
+    needs: [deploy-to-aks]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🔐 Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+        
+    - name: ⚙️ Setup kubectl
+      uses: azure/setup-kubectl@v3
+      
+    - name: 🔧 Configure kubectl
+      run: |
+        az aks get-credentials \
+          --resource-group ${{ env.CLUSTER_RESOURCE_GROUP }} \
+          --name ${{ env.CLUSTER_NAME }} \
+          --overwrite-existing
+    
+    - name: 🧪 Run smoke tests
+      run: |
+        # Vérifier que les pods répondent aux health checks
+        echo "🔍 Checking backend health..."
+        kubectl wait --for=condition=ready pod -l component=backend -n ${{ env.NAMESPACE }} --timeout=300s
+        
+        echo "🔍 Checking frontend health..."
+        kubectl wait --for=condition=ready pod -l component=frontend -n ${{ env.NAMESPACE }} --timeout=300s
+        
+        echo "✅ All smoke tests passed"
+        
+    - name: 📊 Generate deployment report
+      run: |
+        echo "## 🚀 Deployment Report" >> $GITHUB_STEP_SUMMARY
+        echo "- **Environment**: ${{ env.NAMESPACE }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Image Tag**: ${{ needs.build-and-push.outputs.image-tag }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Backend Image**: ${{ needs.build-and-push.outputs.backend-image }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Frontend Image**: ${{ needs.build-and-push.outputs.frontend-image }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Frontend URL**: https://${{ needs.deploy-to-aks.outputs.frontend-url }}" >> $GITHUB_STEP_SUMMARY
+        
+        # État des pods
+        echo "### Pod Status" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        kubectl get pods -n ${{ env.NAMESPACE }} >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY

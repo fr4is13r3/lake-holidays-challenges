@@ -1,0 +1,179 @@
+name: 🏗️ Infrastructure Terraform
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - prod
+      action:
+        description: 'Terraform action'
+        required: true
+        default: 'plan'
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+  
+  push:
+    paths:
+      - 'terraform/**'
+    branches:
+      - main
+      - develop
+
+env:
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+
+jobs:
+  terraform:
+    name: 🏗️ Terraform ${{ github.event.inputs.action || 'plan' }}
+    runs-on: ubuntu-latest
+    
+    env:
+      TF_VAR_environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'prod' || 'dev') }}
+    
+    defaults:
+      run:
+        working-directory: terraform
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+          terraform_wrapper: false
+
+      - name: 🔐 Azure Login
+        uses: azure/login@v1
+        with:
+          creds: |
+            {
+              "clientId": "${{ secrets.AZURE_CLIENT_ID }}",
+              "clientSecret": "${{ secrets.AZURE_CLIENT_SECRET }}",
+              "subscriptionId": "${{ secrets.AZURE_SUBSCRIPTION_ID }}",
+              "tenantId": "${{ secrets.AZURE_TENANT_ID }}"
+            }
+
+      - name: 🔍 Terraform Format Check
+        run: terraform fmt -check -recursive
+        continue-on-error: true
+
+      - name: ✅ Terraform Validate
+        run: |
+          terraform init -backend=false
+          terraform validate
+
+      - name: 🏗️ Terraform Init
+        run: |
+          terraform init \
+            -backend-config="storage_account_name=${{ secrets.TF_STATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ secrets.TF_STATE_CONTAINER }}" \
+            -backend-config="key=lake-holidays-${{ env.TF_VAR_environment }}.tfstate" \
+            -backend-config="resource_group_name=${{ secrets.TF_STATE_RG }}"
+
+      - name: 📋 Terraform Plan
+        id: plan
+        run: |
+          terraform plan \
+            -var-file="environments/${{ env.TF_VAR_environment }}/terraform.tfvars" \
+            -var="jwt_secret_key=${{ secrets.JWT_SECRET_KEY }}" \
+            -var="google_client_secret=${{ secrets.GOOGLE_CLIENT_SECRET }}" \
+            -var="microsoft_client_secret=${{ secrets.MICROSOFT_CLIENT_SECRET }}" \
+            -var="openai_api_key=${{ secrets.OPENAI_API_KEY }}" \
+            -var="notification_email=${{ secrets.NOTIFICATION_EMAIL }}" \
+            -out=tfplan \
+            -detailed-exitcode
+        continue-on-error: true
+
+      - name: 📊 Plan Summary
+        run: |
+          echo "## Terraform Plan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ env.TF_VAR_environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Exit Code:** ${{ steps.plan.outputs.exitcode }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.plan.outputs.exitcode }}" == "0" ]; then
+            echo "✅ No changes detected" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ steps.plan.outputs.exitcode }}" == "2" ]; then
+            echo "📋 Changes detected - see plan below" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Plan failed - check logs" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: 🚀 Terraform Apply
+        if: |
+          (github.event.inputs.action == 'apply' || 
+           (github.event_name == 'push' && github.ref == 'refs/heads/main')) &&
+          steps.plan.outputs.exitcode == '2'
+        run: |
+          terraform apply -auto-approve tfplan
+
+      - name: 💥 Terraform Destroy
+        if: github.event.inputs.action == 'destroy'
+        run: |
+          terraform destroy \
+            -var-file="environments/${{ env.TF_VAR_environment }}/terraform.tfvars" \
+            -var="jwt_secret_key=${{ secrets.JWT_SECRET_KEY }}" \
+            -var="google_client_secret=${{ secrets.GOOGLE_CLIENT_SECRET }}" \
+            -var="microsoft_client_secret=${{ secrets.MICROSOFT_CLIENT_SECRET }}" \
+            -var="openai_api_key=${{ secrets.OPENAI_API_KEY }}" \
+            -var="notification_email=${{ secrets.NOTIFICATION_EMAIL }}" \
+            -auto-approve
+
+      - name: 📊 Terraform Output
+        if: github.event.inputs.action == 'apply' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+        run: |
+          echo "## 🎉 Infrastructure Deployed Successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 Outputs" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          terraform output -json | jq -r 'to_entries[] | "\(.key): \(.value.value)"' >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+  # Job de sécurité pour scanner la configuration Terraform
+  security:
+    name: 🔒 Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔍 Run Checkov
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: terraform/
+          framework: terraform
+          output_format: sarif
+          output_file_path: checkov-results.sarif
+
+      - name: 📊 Upload Checkov scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: checkov-results.sarif
+
+      - name: 🔍 Run TFSec
+        uses: aquasecurity/tfsec-sarif-action@v0.1.4
+        with:
+          sarif_file: tfsec-results.sarif
+
+      - name: 📊 Upload TFSec scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: tfsec-results.sarif
