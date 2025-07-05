@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { User, MapPin, Trophy, Camera, Star, Home, Target, Plus } from 'lucide-react';
 
 // Mock data for demonstration
