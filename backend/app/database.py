@@ -9,6 +9,7 @@ from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.pool import StaticPool
 
 from app.config import settings
 
@@ -22,11 +23,11 @@ def get_database_url():
     """Get the database URL with proper async driver selection."""
     # Check for explicit test environment
     if os.environ.get("ENVIRONMENT") == "test":
-        return "sqlite+aiosqlite:///test.db"
+        return "sqlite+aiosqlite:///:memory:"
     
     # Check for pytest running (alternative test detection)
     if "pytest" in sys.modules or "PYTEST_CURRENT_TEST" in os.environ:
-        return "sqlite+aiosqlite:///test.db"
+        return "sqlite+aiosqlite:///:memory:"
     
     # Get the configured database URL
     db_url = settings.database_url
@@ -48,18 +49,36 @@ def get_database_url():
         return db_url
     
     # Default fallback for testing
-    return "sqlite+aiosqlite:///fallback_test.db"
+    return "sqlite+aiosqlite:///:memory:"
+
+
+def create_database_engine():
+    """Create database engine with appropriate configuration for the database type."""
+    db_url = get_database_url()
+    
+    # SQLite configuration (for testing)
+    if db_url.startswith("sqlite"):
+        return create_async_engine(
+            db_url,
+            echo=settings.debug,
+            poolclass=StaticPool,
+            connect_args={"check_same_thread": False}
+        )
+    
+    # PostgreSQL configuration (for production/development)
+    else:
+        return create_async_engine(
+            db_url,
+            echo=settings.debug,  # Log SQL queries in debug mode
+            pool_size=20,
+            max_overflow=0,
+            pool_pre_ping=True,  # Verify connections before use
+            pool_recycle=3600,  # Recycle connections every hour
+        )
 
 
 # Create async engine
-engine = create_async_engine(
-    get_database_url(),
-    echo=settings.debug,  # Log SQL queries in debug mode
-    pool_size=20,
-    max_overflow=0,
-    pool_pre_ping=True,  # Verify connections before use
-    pool_recycle=3600,  # Recycle connections every hour
-)
+engine = create_database_engine()
 
 # Create async session maker
 AsyncSessionLocal = async_sessionmaker(
