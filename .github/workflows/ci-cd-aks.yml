@@ -13,9 +13,6 @@ on:
 
 env:
   # Configuration globale du workflow
-  REGISTRY_NAME: ${{ vars.AZURE_CONTAINER_REGISTRY }}
-  CLUSTER_NAME: ${{ vars.AKS_CLUSTER_NAME }}
-  CLUSTER_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
   NAMESPACE: lake-holidays-${{ github.ref_name == 'main' && 'prod' || github.ref_name == 'develop' && 'staging' || 'dev' }}
 
 jobs:
@@ -120,6 +117,9 @@ jobs:
     needs: [backend-tests, frontend-tests]
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/feature/')
     
+    # Utiliser l'environnement GitHub Enterprise pour la branche main
+    environment: ${{ github.ref_name == 'main' && 'prod' || null }}
+    
     outputs:
       backend-image: ${{ steps.build-backend.outputs.image }}
       frontend-image: ${{ steps.build-frontend.outputs.image }}
@@ -147,13 +147,13 @@ jobs:
         
     - name: 🐳 Login to Azure Container Registry
       run: |
-        az acr login --name ${{ env.REGISTRY_NAME }}
+        az acr login --name ${{ vars.AZURE_CONTAINER_REGISTRY }}
     
     - name: 🏗️ Build and push backend image
       id: build-backend
       working-directory: ./backend
       run: |
-        IMAGE_NAME="${{ env.REGISTRY_NAME }}.azurecr.io/lake-holidays-backend:${{ steps.generate-tag.outputs.tag }}"
+        IMAGE_NAME="${{ vars.AZURE_CONTAINER_REGISTRY }}.azurecr.io/lake-holidays-backend:${{ steps.generate-tag.outputs.tag }}"
         
         docker build \
           --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
@@ -169,7 +169,7 @@ jobs:
       id: build-frontend
       working-directory: ./frontend
       run: |
-        IMAGE_NAME="${{ env.REGISTRY_NAME }}.azurecr.io/lake-holidays-frontend:${{ steps.generate-tag.outputs.tag }}"
+        IMAGE_NAME="${{ vars.AZURE_CONTAINER_REGISTRY }}.azurecr.io/lake-holidays-frontend:${{ steps.generate-tag.outputs.tag }}"
         
         # Configuration build pour l'environnement
         if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
@@ -222,8 +222,8 @@ jobs:
       run: |
         # Utiliser les variables d'environnement configurées dans GitHub
         az aks get-credentials \
-          --resource-group ${{ env.CLUSTER_RESOURCE_GROUP }} \
-          --name ${{ env.CLUSTER_NAME }} \
+          --resource-group ${{ vars.AKS_RESOURCE_GROUP }} \
+          --name "${{ vars.AKS_CLUSTER_NAME }}" \
           --overwrite-existing
         
     - name: 📦 Deploy to Kubernetes
@@ -231,11 +231,11 @@ jobs:
       env:
         ENVIRONMENT: ${{ github.ref_name == 'main' && 'prod' || 'staging' }}
         VERSION: ${{ needs.build-and-push.outputs.image-tag }}
-        CONTAINER_REGISTRY: ${{ env.REGISTRY_NAME }}.azurecr.io
+        CONTAINER_REGISTRY: ${{ vars.AZURE_CONTAINER_REGISTRY }}.azurecr.io
         # Utilisation des valeurs de votre environnement GitHub Enterprise
-        KEY_VAULT_NAME: lake-prod-kv-1xnf
-        STORAGE_ACCOUNT_NAME: lakeholidaysprodstorage
-        DOMAIN_SUFFIX: francecentral.cloudapp.azure.com
+        KEY_VAULT_NAME: ${{ vars.KEY_VAULT_NAME }}
+        STORAGE_ACCOUNT_NAME: ${{ vars.STORAGE_ACCOUNT_NAME }}
+        DOMAIN_SUFFIX: ${{ vars.DOMAIN_SUFFIX }}
         FRONTEND_DOMAIN: frontend-${{ github.ref_name == 'main' && 'prod' || 'staging' }}.francecentral.cloudapp.azure.com
         BACKEND_DOMAIN: api-${{ github.ref_name == 'main' && 'prod' || 'staging' }}.francecentral.cloudapp.azure.com
       run: |
@@ -254,7 +254,7 @@ jobs:
             -e "s/{{FRONTEND_DOMAIN}}/$FRONTEND_DOMAIN/g" \
             -e "s/{{BACKEND_DOMAIN}}/$BACKEND_DOMAIN/g" \
             -e "s/{{SUBSCRIPTION_ID}}/$(az account show --query id -o tsv)/g" \
-            -e "s/{{RESOURCE_GROUP}}/${{ env.CLUSTER_RESOURCE_GROUP }}/g" \
+            -e "s/{{RESOURCE_GROUP}}/${{ vars.AKS_RESOURCE_GROUP }}/g" \
             -e "s/{{TENANT_ID}}/$(az account show --query tenantId -o tsv)/g" \
             "$manifest" | kubectl apply -f -
         done
@@ -301,8 +301,8 @@ jobs:
     - name: 🔧 Configure kubectl
       run: |
         az aks get-credentials \
-          --resource-group ${{ env.CLUSTER_RESOURCE_GROUP }} \
-          --name ${{ env.CLUSTER_NAME }} \
+          --resource-group ${{ vars.AKS_RESOURCE_GROUP }} \
+          --name ${{ vars.AKS_CLUSTER_NAME }} \
           --overwrite-existing
     
     - name: 🧪 Run smoke tests
@@ -320,7 +320,7 @@ jobs:
       run: |
         echo "## 🚀 Deployment Report" >> $GITHUB_STEP_SUMMARY
         echo "- **Environment**: ${{ env.NAMESPACE }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Registry**: ${{ env.REGISTRY_NAME }}.azurecr.io" >> $GITHUB_STEP_SUMMARY
+        echo "- **Registry**: ${{ vars.AZURE_CONTAINER_REGISTRY }}.azurecr.io" >> $GITHUB_STEP_SUMMARY
         echo "- **Frontend URL**: https://frontend-${{ github.ref_name == 'main' && 'prod' || 'staging' }}.francecentral.cloudapp.azure.com" >> $GITHUB_STEP_SUMMARY
         echo "- **Backend API**: https://api-${{ github.ref_name == 'main' && 'prod' || 'staging' }}.francecentral.cloudapp.azure.com" >> $GITHUB_STEP_SUMMARY
         
