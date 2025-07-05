@@ -12,6 +12,7 @@ on:
       - develop
 
 env:
+  # Configuration globale du workflow
   REGISTRY_NAME: ${{ secrets.AZURE_CONTAINER_REGISTRY }}
   CLUSTER_NAME: ${{ secrets.AKS_CLUSTER_NAME }}
   CLUSTER_RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
@@ -200,7 +201,7 @@ jobs:
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
     
     environment:
-      name: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+      name: ${{ github.ref_name == 'main' && 'prod' || 'staging' }}
       url: https://${{ steps.deploy.outputs.frontend-url }}
     
     steps:
@@ -219,6 +220,7 @@ jobs:
         
     - name: 🔧 Configure kubectl for AKS
       run: |
+        # Utiliser les variables d'environnement configurées dans GitHub
         az aks get-credentials \
           --resource-group ${{ env.CLUSTER_RESOURCE_GROUP }} \
           --name ${{ env.CLUSTER_NAME }} \
@@ -230,10 +232,12 @@ jobs:
         ENVIRONMENT: ${{ github.ref_name == 'main' && 'prod' || 'staging' }}
         VERSION: ${{ needs.build-and-push.outputs.image-tag }}
         CONTAINER_REGISTRY: ${{ env.REGISTRY_NAME }}.azurecr.io
-        KEY_VAULT_NAME: ${{ secrets.KEY_VAULT_NAME }}
-        STORAGE_ACCOUNT_NAME: ${{ secrets.STORAGE_ACCOUNT_NAME }}
-        FRONTEND_DOMAIN: frontend-${{ github.ref_name == 'main' && 'prod' || 'staging' }}.${{ secrets.DOMAIN_SUFFIX }}
-        BACKEND_DOMAIN: api-${{ github.ref_name == 'main' && 'prod' || 'staging' }}.${{ secrets.DOMAIN_SUFFIX }}
+        # Utilisation des valeurs de votre environnement GitHub Enterprise
+        KEY_VAULT_NAME: lake-prod-kv-1xnf
+        STORAGE_ACCOUNT_NAME: lakeholidaysprodstorage
+        DOMAIN_SUFFIX: francecentral.cloudapp.azure.com
+        FRONTEND_DOMAIN: frontend-${{ github.ref_name == 'main' && 'prod' || 'staging' }}.francecentral.cloudapp.azure.com
+        BACKEND_DOMAIN: api-${{ github.ref_name == 'main' && 'prod' || 'staging' }}.francecentral.cloudapp.azure.com
       run: |
         # Créer le namespace s'il n'existe pas
         kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
@@ -316,10 +320,9 @@ jobs:
       run: |
         echo "## 🚀 Deployment Report" >> $GITHUB_STEP_SUMMARY
         echo "- **Environment**: ${{ env.NAMESPACE }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Image Tag**: ${{ needs.build-and-push.outputs.image-tag }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Backend Image**: ${{ needs.build-and-push.outputs.backend-image }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Frontend Image**: ${{ needs.build-and-push.outputs.frontend-image }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Frontend URL**: https://${{ needs.deploy-to-aks.outputs.frontend-url }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Registry**: ${{ env.REGISTRY_NAME }}.azurecr.io" >> $GITHUB_STEP_SUMMARY
+        echo "- **Frontend URL**: https://frontend-${{ github.ref_name == 'main' && 'prod' || 'staging' }}.francecentral.cloudapp.azure.com" >> $GITHUB_STEP_SUMMARY
+        echo "- **Backend API**: https://api-${{ github.ref_name == 'main' && 'prod' || 'staging' }}.francecentral.cloudapp.azure.com" >> $GITHUB_STEP_SUMMARY
         
         # État des pods
         echo "### Pod Status" >> $GITHUB_STEP_SUMMARY
