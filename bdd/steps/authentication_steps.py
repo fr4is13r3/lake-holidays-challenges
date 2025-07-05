@@ -4,10 +4,41 @@ Tests BDD pour l'application Vacances Gamifiées
 """
 
 from behave import given, when, then
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
 import time
+
+# Import selenium components only when needed to avoid import errors in headless environments
+try:
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support import expected_conditions as EC
+    from selenium.common.exceptions import TimeoutException
+    SELENIUM_AVAILABLE = True
+except ImportError:
+    SELENIUM_AVAILABLE = False
+    # Mock classes for when selenium is not available
+    class By:
+        CSS_SELECTOR = "css"
+        XPATH = "xpath"
+        TAG_NAME = "tag"
+    
+    class EC:
+        @staticmethod
+        def presence_of_element_located(locator):
+            pass
+        @staticmethod
+        def any_of(*conditions):
+            pass
+        @staticmethod
+        def url_contains(text):
+            pass
+        @staticmethod
+        def invisibility_of_element_located(locator):
+            pass
+        @staticmethod
+        def presence_of_all_elements_located(locator):
+            pass
+    
+    class TimeoutException(Exception):
+        pass
 
 
 # ========== GIVEN Steps ==========

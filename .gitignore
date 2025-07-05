@@ -156,3 +156,11 @@ terraform/.terraform/providers/registry.terraform.io/hashicorp/kubernetes/2.37.1
 terraform/.terraform/providers/registry.terraform.io/hashicorp/kubernetes/2.37.1/linux_amd64/terraform-provider-kubernetes_v2.37.1_x5
 terraform/.terraform/providers/registry.terraform.io/hashicorp/random/3.7.2/linux_amd64/LICENSE.txt
 terraform/.terraform/providers/registry.terraform.io/hashicorp/random/3.7.2/linux_amd64/terraform-provider-random_v3.7.2_x5
+bdd/steps/__pycache__/authentication_steps.cpython-312.pyc
+bdd/steps/__pycache__/mobile_ui_ux_steps.cpython-312.pyc
+bdd/steps/__pycache__/daily_challenges_steps.cpython-312.pyc
+bdd/steps/__pycache__/ai_content_generation_steps.cpython-312.pyc
+bdd/steps/__pycache__/scoring_leaderboard_steps.cpython-312.pyc
+bdd/steps/__pycache__/season_management_steps.cpython-312.pyc
+bdd/steps/__pycache__/simple_test_steps.cpython-312.pyc
+bdd/steps/__pycache__/user_profile_steps.cpython-312.pyc

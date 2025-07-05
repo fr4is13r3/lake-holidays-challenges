@@ -55,15 +55,7 @@ def step_app_is_open(context):
     )
 
 
-@given('je suis sur la page d\'accueil')
-def step_on_home_page_mobile(context):
-    """Naviguer vers la page d'accueil mobile"""
-    home_url = f"{context.base_url}/home"
-    context.driver.get(home_url)
-    
-    context.wait.until(
-        EC.presence_of_element_located((By.CSS_SELECTOR, "[data-testid='home-page'], .home-container"))
-    )
+
 
 
 @given('l\'interface affiche des boutons d\'action')
