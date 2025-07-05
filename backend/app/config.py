@@ -26,6 +26,17 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "postgresql+asyncpg://postgres:password@localhost:5432/lake_holidays"
     
+    def __init__(self, **data):
+        super().__init__(**data)
+        # Ensure database URL always uses async driver
+        if self.database_url:
+            if self.database_url.startswith("postgresql://"):
+                self.database_url = self.database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            elif self.database_url.startswith("postgres://"):
+                self.database_url = self.database_url.replace("postgres://", "postgresql+asyncpg://", 1)
+            elif self.database_url.startswith("postgresql+psycopg2://"):
+                self.database_url = self.database_url.replace("postgresql+psycopg2://", "postgresql+asyncpg://", 1)
+    
     # Redis (for caching and sessions)
     redis_url: str = "redis://localhost:6379/0"
     
@@ -75,6 +86,11 @@ class Settings(BaseSettings):
 @lru_cache()
 def get_settings() -> Settings:
     """Get cached application settings."""
+    return Settings()
+
+
+def get_settings_uncached() -> Settings:
+    """Get uncached application settings (useful for testing)."""
     return Settings()
 
 

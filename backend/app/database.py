@@ -3,6 +3,9 @@ Database configuration and session management
 Handles SQLAlchemy async engine and session creation
 """
 
+import os
+import sys
+from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import DeclarativeBase
@@ -15,9 +18,42 @@ class Base(DeclarativeBase):
     pass
 
 
+def get_database_url():
+    """Get the database URL with proper async driver selection."""
+    # Check for explicit test environment
+    if os.environ.get("ENVIRONMENT") == "test":
+        return "sqlite+aiosqlite:///test.db"
+    
+    # Check for pytest running (alternative test detection)
+    if "pytest" in sys.modules or "PYTEST_CURRENT_TEST" in os.environ:
+        return "sqlite+aiosqlite:///test.db"
+    
+    # Get the configured database URL
+    db_url = settings.database_url
+    
+    # If DATABASE_URL environment variable is set and points to SQLite, use it
+    env_db_url = os.environ.get("DATABASE_URL", "")
+    if env_db_url.startswith("sqlite"):
+        return env_db_url
+    
+    # For any PostgreSQL-like URL, ensure we use async driver
+    if any(db_url.startswith(prefix) for prefix in ["postgresql://", "postgres://", "postgresql+psycopg2://"]):
+        # Extract the URL components and rebuild with asyncpg
+        if "://" in db_url:
+            scheme, rest = db_url.split("://", 1)
+            return f"postgresql+asyncpg://{rest}"
+    
+    # If it already has the correct async driver, return as-is
+    if "+asyncpg://" in db_url or "+aiosqlite://" in db_url:
+        return db_url
+    
+    # Default fallback for testing
+    return "sqlite+aiosqlite:///fallback_test.db"
+
+
 # Create async engine
 engine = create_async_engine(
-    settings.database_url,
+    get_database_url(),
     echo=settings.debug,  # Log SQL queries in debug mode
     pool_size=20,
     max_overflow=0,
@@ -35,7 +71,7 @@ AsyncSessionLocal = async_sessionmaker(
 )
 
 
-async def get_db() -> AsyncSession:
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
     Dependency that provides a database session.
     Used with FastAPI's Depends() for dependency injection.
