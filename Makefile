@@ -1,7 +1,7 @@
 # Makefile pour l'application Vacances Gamifiées - Full Stack
 # Usage: make [target]
 
-.PHONY: help install test test-smoke test-auth test-ui test-api test-staging test-parallel clean reports backend-setup backend-dev backend-test frontend-setup frontend-dev
+.PHONY: help install test test-smoke test-auth test-ui test-api test-staging test-parallel clean reports backend-setup backend-dev backend-test frontend-setup frontend-dev terraform-setup terraform-plan terraform-apply terraform-destroy deploy-dev deploy-prod
 
 # Variables par défaut
 PYTHON := python3
@@ -9,6 +9,7 @@ PIP := pip3
 BDD_DIR := bdd
 BACKEND_DIR := backend
 FRONTEND_DIR := frontend
+TERRAFORM_DIR := terraform
 REPORTS_DIR := reports
 
 # Couleurs pour l'affichage
@@ -26,11 +27,16 @@ help: ## Afficher cette aide
 	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z_-]+:.*##/ { printf "  $(GREEN)%-25s$(NC) %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "Exemples:"
-	@echo "  make setup           # Configuration complète (backend + frontend + BDD)"
-	@echo "  make backend-dev     # Démarrer le backend en mode développement"
-	@echo "  make frontend-dev    # Démarrer le frontend en mode développement"
-	@echo "  make test-smoke      # Tests critiques rapides"
-	@echo "  make docker-up       # Démarrer tous les services avec Docker"
+	@echo "  make setup               # Configuration complète (backend + frontend + BDD)"
+	@echo "  make backend-dev         # Démarrer le backend en mode développement"
+	@echo "  make frontend-dev        # Démarrer le frontend en mode développement"
+	@echo "  make test-smoke          # Tests critiques rapides"
+	@echo "  make docker-up           # Démarrer tous les services avec Docker"
+	@echo ""
+	@echo "🏗️  Azure & Terraform:"
+	@echo "  make terraform-setup     # Configuration initiale Azure/Terraform"
+	@echo "  make deploy-dev          # Déploiement complet développement"
+	@echo "  make deploy-prod         # Déploiement complet production"
 
 # =============================================================================
 # SETUP ET INSTALLATION
@@ -274,6 +280,86 @@ status: ## Afficher le statut de l'environnement de test
 	fi
 	@echo "Répertoire BDD: $(shell ls -la $(BDD_DIR) 2>/dev/null | wc -l) fichiers"
 	@echo "Rapports: $(shell ls -la $(REPORTS_DIR) 2>/dev/null | wc -l) fichiers"
+
+# =============================================================================
+# TERRAFORM & AZURE DEPLOYMENT  
+# =============================================================================
+
+terraform-setup: ## Configuration initiale Terraform et Azure
+	@echo -e "$(BLUE)🏗️  Configuration initiale Terraform...$(NC)"
+	./scripts/deploy-infrastructure.sh $(if $(ENVIRONMENT),$(ENVIRONMENT),dev) setup
+
+terraform-plan: ## Planifier les changements Terraform (dev par défaut)
+	@echo -e "$(BLUE)📋 Planification Terraform (dev)...$(NC)"
+	./scripts/deploy-infrastructure.sh dev plan
+
+terraform-plan-prod: ## Planifier les changements Terraform (production)
+	@echo -e "$(BLUE)📋 Planification Terraform (production)...$(NC)"
+	./scripts/deploy-infrastructure.sh prod plan
+
+terraform-apply: ## Appliquer les changements Terraform (dev)
+	@echo -e "$(BLUE)🚀 Déploiement Terraform (dev)...$(NC)"
+	./scripts/deploy-infrastructure.sh dev apply
+
+terraform-apply-prod: ## Appliquer les changements Terraform (production)
+	@echo -e "$(YELLOW)⚠️  Déploiement en PRODUCTION!$(NC)"
+	./scripts/deploy-infrastructure.sh prod apply
+
+terraform-destroy: ## Détruire l'infrastructure (dev)
+	@echo -e "$(RED)💥 Destruction infrastructure (dev)...$(NC)"
+	./scripts/deploy-infrastructure.sh dev destroy
+
+terraform-destroy-prod: ## Détruire l'infrastructure (production)
+	@echo -e "$(RED)💥 DESTRUCTION PRODUCTION!$(NC)"
+	./scripts/deploy-infrastructure.sh prod destroy
+
+deploy-dev: ## Déploiement complet développement
+	@echo -e "$(BLUE)🚀 Déploiement complet développement...$(NC)"
+	make terraform-plan
+	make terraform-apply
+	@echo -e "$(GREEN)✅ Déploiement dev terminé$(NC)"
+
+deploy-prod: ## Déploiement complet production
+	@echo -e "$(YELLOW)🚀 Déploiement complet production...$(NC)"
+	make terraform-plan-prod
+	make terraform-apply-prod
+	@echo -e "$(GREEN)✅ Déploiement production terminé$(NC)"
+
+terraform-format: ## Formater les fichiers Terraform
+	@echo -e "$(BLUE)🔧 Formatage Terraform...$(NC)"
+	cd $(TERRAFORM_DIR) && terraform fmt -recursive
+
+terraform-validate: ## Valider la configuration Terraform
+	@echo -e "$(BLUE)✅ Validation Terraform...$(NC)"
+	cd $(TERRAFORM_DIR) && terraform init -backend=false && terraform validate
+
+terraform-security: ## Scanner la sécurité Terraform
+	@echo -e "$(BLUE)🔒 Scan sécurité Terraform...$(NC)"
+	@if command -v tfsec >/dev/null 2>&1; then \
+		cd $(TERRAFORM_DIR) && tfsec .; \
+	else \
+		echo -e "$(YELLOW)tfsec non installé. Installer avec: brew install tfsec$(NC)"; \
+	fi
+
+terraform-docs: ## Générer la documentation Terraform
+	@echo -e "$(BLUE)📚 Génération documentation Terraform...$(NC)"
+	@if command -v terraform-docs >/dev/null 2>&1; then \
+		cd $(TERRAFORM_DIR) && terraform-docs markdown table --output-file README.md .; \
+	else \
+		echo -e "$(YELLOW)terraform-docs non installé.$(NC)"; \
+	fi
+
+azure-login: ## Connexion Azure CLI
+	@echo -e "$(BLUE)🔐 Connexion Azure...$(NC)"
+	az login
+
+azure-info: ## Informations compte Azure
+	@echo -e "$(BLUE)ℹ️  Informations Azure...$(NC)"
+	@echo "Compte actuel:"
+	@az account show --query "{nom: name, id: id, tenant: tenantId}" -o table 2>/dev/null || echo "Non connecté à Azure"
+	@echo ""
+	@echo "Groupes de ressources Lake Holidays:"
+	@az group list --query "[?contains(name, 'lake-holidays')].{nom: name, region: location, status: properties.provisioningState}" -o table 2>/dev/null || echo "Aucun groupe trouvé"
 
 # Target par défaut
 .DEFAULT_GOAL := help

@@ -1,0 +1,10 @@
+# Fichiers de secrets - NE PAS VERSIONNER
+secrets.tfvars
+*.tfvars.local
+*-secrets.tfvars
+
+# Plans Terraform
+*.tfplan
+
+# Fichiers de backup
+*.tfvars.backup
