@@ -2,7 +2,7 @@
 # Multi-stage build optimisé pour React + Vite
 
 # Build stage
-FROM node:18-alpine as builder
+FROM node:20-alpine AS builder
 
 # Set working directory
 WORKDIR /app
@@ -10,8 +10,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install all dependencies (including dev dependencies needed for build)
+RUN npm ci
 
 # Copy source code
 COPY . .
@@ -31,7 +31,7 @@ ENV NODE_ENV=production
 RUN npm run build
 
 # Production stage
-FROM nginx:alpine as production
+FROM nginx:alpine AS production
 
 # Install dumb-init for proper signal handling
 RUN apk add --no-cache dumb-init
