@@ -200,6 +200,7 @@ jobs:
     needs: [build-and-push]
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
     
+    # Utiliser l'environnement GitHub Enterprise pour la branche main
     environment:
       name: ${{ github.ref_name == 'main' && 'prod' || 'staging' }}
       url: https://${{ steps.deploy.outputs.frontend-url }}
@@ -222,7 +223,7 @@ jobs:
       run: |
         # Utiliser les variables d'environnement configurées dans GitHub
         az aks get-credentials \
-          --resource-group ${{ vars.AKS_RESOURCE_GROUP }} \
+          --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
           --name "${{ vars.AKS_CLUSTER_NAME }}" \
           --overwrite-existing
         
