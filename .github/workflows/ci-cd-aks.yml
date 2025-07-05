@@ -13,9 +13,9 @@ on:
 
 env:
   # Configuration globale du workflow
-  REGISTRY_NAME: ${{ secrets.AZURE_CONTAINER_REGISTRY }}
-  CLUSTER_NAME: ${{ secrets.AKS_CLUSTER_NAME }}
-  CLUSTER_RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
+  REGISTRY_NAME: ${{ vars.AZURE_CONTAINER_REGISTRY }}
+  CLUSTER_NAME: ${{ vars.AKS_CLUSTER_NAME }}
+  CLUSTER_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
   NAMESPACE: lake-holidays-${{ github.ref_name == 'main' && 'prod' || github.ref_name == 'develop' && 'staging' || 'dev' }}
 
 jobs:
