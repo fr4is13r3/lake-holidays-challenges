@@ -35,11 +35,11 @@ data:
   APP_NAME: "lake-holidays"
   LOG_LEVEL: "INFO"
   
-  # Configuration des services intégrés (PostgreSQL et Redis dans le backend)
+  # Configuration des services (PostgreSQL et Redis séparés)
   POSTGRES_DB: "lake_holidays"
-  POSTGRES_HOST: "localhost"
+  POSTGRES_HOST: "postgres"
   POSTGRES_PORT: "5432"
-  REDIS_HOST: "localhost" 
+  REDIS_HOST: "redis" 
   REDIS_PORT: "6379"
   
   # Configuration Azure

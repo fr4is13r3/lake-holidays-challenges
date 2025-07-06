@@ -246,22 +246,98 @@ jobs:
         # Créer le namespace s'il n'existe pas
         kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
         
-        # Substituer les variables et appliquer les manifests
-        for manifest in k8s/*.yaml; do
-          # Substitution des variables
-          sed \
-            -e "s/{{ENVIRONMENT}}/$ENVIRONMENT/g" \
-            -e "s/{{VERSION}}/$VERSION/g" \
-            -e "s/{{CONTAINER_REGISTRY}}/$CONTAINER_REGISTRY/g" \
-            -e "s/{{KEY_VAULT_NAME}}/$KEY_VAULT_NAME/g" \
-            -e "s/{{STORAGE_ACCOUNT_NAME}}/$STORAGE_ACCOUNT_NAME/g" \
-            -e "s/{{FRONTEND_DOMAIN}}/$FRONTEND_DOMAIN/g" \
-            -e "s/{{BACKEND_DOMAIN}}/$BACKEND_DOMAIN/g" \
-            -e "s/{{SUBSCRIPTION_ID}}/$(az account show --query id -o tsv)/g" \
-            -e "s/{{RESOURCE_GROUP}}/${{ vars.AKS_RESOURCE_GROUP }}/g" \
-            -e "s/{{TENANT_ID}}/$(az account show --query tenantId -o tsv)/g" \
-            "$manifest" | kubectl apply -f -
-        done
+        # Déployer dans l'ordre correct
+        echo "🚀 Deploying infrastructure components..."
+        
+        # 1. Namespace et configuration
+        sed \
+          -e "s/{{ENVIRONMENT}}/$ENVIRONMENT/g" \
+          -e "s/{{VERSION}}/$VERSION/g" \
+          -e "s/{{CONTAINER_REGISTRY}}/$CONTAINER_REGISTRY/g" \
+          -e "s/{{KEY_VAULT_NAME}}/$KEY_VAULT_NAME/g" \
+          -e "s/{{STORAGE_ACCOUNT_NAME}}/$STORAGE_ACCOUNT_NAME/g" \
+          -e "s/{{FRONTEND_DOMAIN}}/$FRONTEND_DOMAIN/g" \
+          -e "s/{{BACKEND_DOMAIN}}/$BACKEND_DOMAIN/g" \
+          -e "s/{{SUBSCRIPTION_ID}}/$(az account show --query id -o tsv)/g" \
+          -e "s/{{RESOURCE_GROUP}}/${{ vars.AKS_RESOURCE_GROUP }}/g" \
+          -e "s/{{TENANT_ID}}/$(az account show --query tenantId -o tsv)/g" \
+          k8s/00-namespace-config.yaml | kubectl apply -f -
+        
+        # 2. Storage
+        sed \
+          -e "s/{{ENVIRONMENT}}/$ENVIRONMENT/g" \
+          k8s/02-storage.yaml | kubectl apply -f -
+        
+        # 3. Key Vault secrets
+        sed \
+          -e "s/{{ENVIRONMENT}}/$ENVIRONMENT/g" \
+          -e "s/{{KEY_VAULT_NAME}}/$KEY_VAULT_NAME/g" \
+          -e "s/{{SUBSCRIPTION_ID}}/$(az account show --query id -o tsv)/g" \
+          -e "s/{{RESOURCE_GROUP}}/${{ vars.AZURE_RESOURCE_GROUP }}/g" \
+          -e "s/{{TENANT_ID}}/$(az account show --query tenantId -o tsv)/g" \
+          k8s/06-key-vault-secrets.yaml | kubectl apply -f -
+        
+        # 4. Database services (PostgreSQL et Redis)
+        echo "🗄️ Deploying database services..."
+        sed \
+          -e "s/{{ENVIRONMENT}}/$ENVIRONMENT/g" \
+          -e "s/{{VERSION}}/$VERSION/g" \
+          k8s/07-postgres-deployment.yaml | kubectl apply -f -
+        
+        sed \
+          -e "s/{{ENVIRONMENT}}/$ENVIRONMENT/g" \
+          -e "s/{{VERSION}}/$VERSION/g" \
+          k8s/08-redis-deployment.yaml | kubectl apply -f -
+        
+        # Attendre que les bases de données soient prêtes
+        echo "⏳ Waiting for database services to be ready..."
+        kubectl wait --for=condition=available deployment/postgres -n ${{ env.NAMESPACE }} --timeout=300s
+        kubectl wait --for=condition=available deployment/redis -n ${{ env.NAMESPACE }} --timeout=300s
+        
+        # 5. Migrations de base de données
+        echo "🔄 Running database migrations..."
+        sed \
+          -e "s/{{ENVIRONMENT}}/$ENVIRONMENT/g" \
+          -e "s/{{VERSION}}/$VERSION/g" \
+          -e "s/{{CONTAINER_REGISTRY}}/$CONTAINER_REGISTRY/g" \
+          k8s/09-alembic-migrations.yaml | kubectl apply -f -
+        
+        # Attendre que les migrations se terminent
+        kubectl wait --for=condition=complete job/alembic-migrations-$VERSION -n ${{ env.NAMESPACE }} --timeout=300s
+        
+        # 6. Application backend
+        echo "🚀 Deploying backend application..."
+        sed \
+          -e "s/{{ENVIRONMENT}}/$ENVIRONMENT/g" \
+          -e "s/{{VERSION}}/$VERSION/g" \
+          -e "s/{{CONTAINER_REGISTRY}}/$CONTAINER_REGISTRY/g" \
+          -e "s/{{KEY_VAULT_NAME}}/$KEY_VAULT_NAME/g" \
+          -e "s/{{STORAGE_ACCOUNT_NAME}}/$STORAGE_ACCOUNT_NAME/g" \
+          -e "s/{{FRONTEND_DOMAIN}}/$FRONTEND_DOMAIN/g" \
+          -e "s/{{BACKEND_DOMAIN}}/$BACKEND_DOMAIN/g" \
+          k8s/01-backend-deployment.yaml | kubectl apply -f -
+        
+        # 7. Application frontend
+        echo "🎨 Deploying frontend application..."
+        sed \
+          -e "s/{{ENVIRONMENT}}/$ENVIRONMENT/g" \
+          -e "s/{{VERSION}}/$VERSION/g" \
+          -e "s/{{CONTAINER_REGISTRY}}/$CONTAINER_REGISTRY/g" \
+          -e "s/{{BACKEND_DOMAIN}}/$BACKEND_DOMAIN/g" \
+          k8s/03-frontend-deployment.yaml | kubectl apply -f -
+        
+        # 8. Ingress et services d'exposition
+        echo "🌐 Deploying ingress and networking..."
+        sed \
+          -e "s/{{ENVIRONMENT}}/$ENVIRONMENT/g" \
+          -e "s/{{FRONTEND_DOMAIN}}/$FRONTEND_DOMAIN/g" \
+          -e "s/{{BACKEND_DOMAIN}}/$BACKEND_DOMAIN/g" \
+          k8s/04-ingress.yaml | kubectl apply -f -
+        
+        # 9. Autoscaling
+        sed \
+          -e "s/{{ENVIRONMENT}}/$ENVIRONMENT/g" \
+          k8s/05-autoscaling.yaml | kubectl apply -f -
         
         # Attendre que les déploiements soient prêts avec timeout étendu
         echo "🚀 Waiting for backend deployment..."
@@ -322,7 +398,7 @@ jobs:
     - name: 🔧 Configure kubectl
       run: |
         az aks get-credentials \
-          --resource-group ${{ vars.AKS_RESOURCE_GROUP }} \
+          --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
           --name ${{ vars.AKS_CLUSTER_NAME }} \
           --overwrite-existing
     

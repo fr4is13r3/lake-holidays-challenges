@@ -1,0 +1,104 @@
+# Job pour les migrations de base de données Alembic
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: alembic-migrations-{{VERSION}}
+  namespace: lake-holidays-{{ENVIRONMENT}}
+  labels:
+    app: lake-holidays
+    component: migrations
+    version: "{{VERSION}}"
+spec:
+  template:
+    metadata:
+      labels:
+        app: lake-holidays
+        component: migrations
+        version: "{{VERSION}}"
+    spec:
+      serviceAccountName: lake-holidays-sa
+      restartPolicy: Never
+      nodeSelector:
+        workload: application
+      tolerations:
+        - key: workload
+          operator: Equal
+          value: application
+          effect: NoSchedule
+      initContainers:
+      # Attendre que PostgreSQL soit prêt
+      - name: wait-for-postgres
+        image: postgres:15-alpine
+        command:
+        - sh
+        - -c
+        - |
+          until pg_isready -h postgres -p 5432 -U postgres; do
+            echo "Waiting for PostgreSQL to be ready..."
+            sleep 2
+          done
+          echo "PostgreSQL is ready!"
+        env:
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: lake-holidays-secrets
+              key: POSTGRES_PASSWORD
+      containers:
+      - name: alembic
+        image: "{{CONTAINER_REGISTRY}}/lake-holidays-backend:{{VERSION}}"
+        imagePullPolicy: Always
+        command: ["alembic", "upgrade", "head"]
+        env:
+        # Configuration de base de données
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: lake-holidays-config
+              key: POSTGRES_DB
+        - name: POSTGRES_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: lake-holidays-config
+              key: POSTGRES_HOST
+        - name: POSTGRES_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: lake-holidays-config
+              key: POSTGRES_PORT
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: lake-holidays-secrets
+              key: POSTGRES_PASSWORD
+        # Variables d'environnement requises par l'application
+        - name: ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: lake-holidays-config
+              key: ENVIRONMENT
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: lake-holidays-secrets
+              key: JWT_SECRET_KEY
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: lake-holidays-config
+              key: REDIS_HOST
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: lake-holidays-config
+              key: REDIS_PORT
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      # Nettoyer les jobs terminés automatiquement après 1 heure
+  ttlSecondsAfterFinished: 3600
+  backoffLimit: 3

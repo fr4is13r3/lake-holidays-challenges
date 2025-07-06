@@ -1,0 +1,154 @@
+# Déploiement Redis
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: lake-holidays-{{ENVIRONMENT}}
+  labels:
+    app: lake-holidays
+    component: redis
+    version: "{{VERSION}}"
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate  # Important pour Redis avec persistance
+  selector:
+    matchLabels:
+      app: lake-holidays
+      component: redis
+  template:
+    metadata:
+      labels:
+        app: lake-holidays
+        component: redis
+        version: "{{VERSION}}"
+    spec:
+      nodeSelector:
+        workload: application
+      tolerations:
+        - key: workload
+          operator: Equal
+          value: application
+          effect: NoSchedule
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: redis
+          containerPort: 6379
+          protocol: TCP
+        command:
+        - redis-server
+        - /etc/redis/redis.conf
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "250m"
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+        - name: redis-config
+          mountPath: /etc/redis
+          readOnly: true
+      volumes:
+      - name: redis-data
+        persistentVolumeClaim:
+          claimName: redis-pvc
+      - name: redis-config
+        configMap:
+          name: redis-config
+          defaultMode: 0644
+---
+# Service pour Redis
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: lake-holidays-{{ENVIRONMENT}}
+  labels:
+    app: lake-holidays
+    component: redis
+spec:
+  type: ClusterIP
+  ports:
+  - name: redis
+    port: 6379
+    targetPort: redis
+    protocol: TCP
+  selector:
+    app: lake-holidays
+    component: redis
+---
+# ConfigMap pour la configuration Redis
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+  namespace: lake-holidays-{{ENVIRONMENT}}
+  labels:
+    app: lake-holidays
+    component: redis
+data:
+  redis.conf: |
+    # Configuration Redis pour Lake Holidays Challenge
+    
+    # Persistance
+    save 900 1
+    save 300 10
+    save 60 10000
+    
+    # Répertoire de données
+    dir /data
+    
+    # Fichier de persistance
+    dbfilename dump.rdb
+    
+    # Compression
+    rdbcompression yes
+    rdbchecksum yes
+    
+    # AOF (Append Only File) pour une meilleure durabilité
+    appendonly yes
+    appendfilename "appendonly.aof"
+    appendfsync everysec
+    
+    # Sécurité basique
+    protected-mode no
+    bind 0.0.0.0
+    port 6379
+    
+    # Mémoire
+    maxmemory 256mb
+    maxmemory-policy allkeys-lru
+    
+    # Logs
+    loglevel notice
+    
+    # Performance
+    tcp-keepalive 300
+    timeout 0
+    
+    # Clients
+    maxclients 10000
