@@ -190,46 +190,136 @@ substitute_variables() {
 }
 
 deploy_manifests() {
-    log_info "Déploiement des manifests Kubernetes..."
+    log_info "Déploiement des manifests Kubernetes dans l'ordre correct..."
     
     local temp_dir=$(mktemp -d)
+    local namespace="lake-holidays-${ENVIRONMENT}"
     
-    # Traiter chaque fichier manifest
-    for manifest in "$K8S_DIR"/*.yaml; do
-        if [ -f "$manifest" ]; then
-            local filename=$(basename "$manifest")
-            local temp_file="$temp_dir/$filename"
-            
-            log_info "Traitement de $filename..."
-            substitute_variables "$manifest" "$temp_file"
-            
-            # Appliquer le manifest
-            if kubectl apply -f "$temp_file"; then
-                log_success "✓ $filename appliqué"
-            else
-                log_error "✗ Échec de l'application de $filename"
-                exit 1
-            fi
+    # Créer le namespace s'il n'existe pas
+    kubectl create namespace "$namespace" --dry-run=client -o yaml | kubectl apply -f -
+    
+    # Fonction helper pour appliquer un manifest
+    apply_manifest() {
+        local manifest_name="$1"
+        local manifest_file="$K8S_DIR/$manifest_name"
+        
+        if [ ! -f "$manifest_file" ]; then
+            log_warning "Manifest $manifest_name non trouvé, ignoré"
+            return 0
         fi
-    done
+        
+        local temp_file="$temp_dir/$manifest_name"
+        log_info "📦 Déploiement de $manifest_name..."
+        
+        substitute_variables "$manifest_file" "$temp_file"
+        
+        if kubectl apply -f "$temp_file"; then
+            log_success "✓ $manifest_name appliqué"
+        else
+            log_error "✗ Échec de l'application de $manifest_name"
+            exit 1
+        fi
+    }
+    
+    # 1. Configuration et namespace
+    log_info "🔧 Étape 1: Configuration et namespace"
+    apply_manifest "00-namespace-config.yaml"
+    
+    # 2. Storage
+    log_info "💾 Étape 2: Storage (PVC)"
+    apply_manifest "02-storage.yaml"
+    
+    # 3. Key Vault secrets
+    log_info "🔐 Étape 3: Key Vault secrets"
+    apply_manifest "06-key-vault-secrets.yaml"
+    
+    # 4. Services de base de données (PostgreSQL et Redis)
+    log_info "🗄️ Étape 4: Services de base de données"
+    apply_manifest "07-postgres-deployment.yaml"
+    apply_manifest "08-redis-deployment.yaml"
+    
+    # Attendre que les bases de données soient prêtes
+    log_info "⏳ Attente que les services de base de données soient prêts..."
+    kubectl wait --for=condition=available deployment/postgres -n "$namespace" --timeout=300s || {
+        log_error "PostgreSQL n'est pas devenu disponible"
+        kubectl get pods -n "$namespace" -l component=postgres
+        kubectl logs -l component=postgres -n "$namespace" --tail=20
+        exit 1
+    }
+    
+    kubectl wait --for=condition=available deployment/redis -n "$namespace" --timeout=300s || {
+        log_error "Redis n'est pas devenu disponible"
+        kubectl get pods -n "$namespace" -l component=redis
+        kubectl logs -l component=redis -n "$namespace" --tail=20
+        exit 1
+    }
+    
+    log_success "✓ Services de base de données prêts"
+    
+    # 5. Migrations de base de données
+    log_info "🔄 Étape 5: Migrations de base de données"
+    apply_manifest "09-alembic-migrations.yaml"
+    
+    # Attendre que les migrations se terminent
+    log_info "⏳ Attente de la fin des migrations..."
+    kubectl wait --for=condition=complete job/alembic-migrations-$VERSION -n "$namespace" --timeout=300s || {
+        log_error "Les migrations n'ont pas réussi"
+        kubectl describe job/alembic-migrations-$VERSION -n "$namespace"
+        kubectl logs job/alembic-migrations-$VERSION -n "$namespace" --tail=50
+        exit 1
+    }
+    
+    log_success "✓ Migrations terminées"
+    
+    # 6. Application backend
+    log_info "🚀 Étape 6: Application backend"
+    apply_manifest "01-backend-deployment.yaml"
+    
+    # 7. Application frontend
+    log_info "🎨 Étape 7: Application frontend"
+    apply_manifest "03-frontend-deployment.yaml"
+    
+    # 8. Ingress et networking
+    log_info "🌐 Étape 8: Ingress et networking"
+    apply_manifest "04-ingress.yaml"
+    
+    # 9. Autoscaling
+    log_info "📈 Étape 9: Autoscaling"
+    apply_manifest "05-autoscaling.yaml"
     
     # Nettoyer les fichiers temporaires
     rm -rf "$temp_dir"
     
-    log_success "Tous les manifests ont été appliqués"
+    log_success "Tous les manifests ont été appliqués dans l'ordre correct"
 }
 
 wait_for_deployment() {
-    log_info "Attente du démarrage des déploiements..."
+    log_info "Attente du démarrage final de tous les déploiements..."
     
     local namespace="lake-holidays-${ENVIRONMENT}"
     
-    # Attendre que les déploiements soient prêts
+    # Attendre que tous les déploiements soient prêts
+    log_info "⏳ Attente finale du backend..."
+    kubectl wait --for=condition=available \
+        --timeout=600s \
+        deployment/backend \
+        -n "$namespace" || {
+        log_error "Backend n'est pas devenu disponible"
+        kubectl get pods -n "$namespace" -l component=backend
+        kubectl logs -l component=backend -n "$namespace" --tail=50
+        exit 1
+    }
+    
+    log_info "⏳ Attente finale du frontend..."
     kubectl wait --for=condition=available \
         --timeout=300s \
-        deployment/backend \
         deployment/frontend \
-        -n "$namespace"
+        -n "$namespace" || {
+        log_error "Frontend n'est pas devenu disponible"
+        kubectl get pods -n "$namespace" -l component=frontend
+        kubectl logs -l component=frontend -n "$namespace" --tail=20
+        exit 1
+    }
     
     log_success "Tous les déploiements sont prêts"
 }
@@ -256,15 +346,69 @@ show_status() {
     kubectl get hpa -n "$namespace"
     
     echo ""
-    log_info "Pour voir les logs du backend:"
-    echo "  kubectl logs -l component=backend -n $namespace -f"
+    echo "=== SECRETS ==="
+    kubectl get secrets -n "$namespace"
     
-    log_info "Pour voir les logs du frontend:"
+    echo ""
+    echo "=== JOBS (MIGRATIONS) ==="
+    kubectl get jobs -n "$namespace"
+    
+    echo ""
+    echo "=== PVC ==="
+    kubectl get pvc -n "$namespace"
+    
+    echo ""
+    log_info "Commandes utiles pour le debug:"
+    echo "  kubectl logs -l component=postgres -n $namespace -f"
+    echo "  kubectl logs -l component=redis -n $namespace -f"
+    echo "  kubectl logs -l component=backend -n $namespace -f"
     echo "  kubectl logs -l component=frontend -n $namespace -f"
+    echo "  kubectl logs job/alembic-migrations-$VERSION -n $namespace"
     
     log_info "Pour accéder à l'application:"
     echo "  Frontend: https://$FRONTEND_DOMAIN"
     echo "  Backend API: https://$BACKEND_DOMAIN"
+    
+    # Vérification rapide de l'état des services
+    echo ""
+    log_info "🔍 Vérification rapide des services:"
+    
+    # PostgreSQL
+    if kubectl get pod -l component=postgres -n "$namespace" &>/dev/null; then
+        postgres_status=$(kubectl get pods -l component=postgres -n "$namespace" -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "Unknown")
+        if [ "$postgres_status" == "Running" ]; then
+            log_success "✓ PostgreSQL: Running"
+        else
+            log_warning "⚠ PostgreSQL: $postgres_status"
+        fi
+    else
+        log_error "✗ PostgreSQL: Not found"
+    fi
+    
+    # Redis
+    if kubectl get pod -l component=redis -n "$namespace" &>/dev/null; then
+        redis_status=$(kubectl get pods -l component=redis -n "$namespace" -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "Unknown")
+        if [ "$redis_status" == "Running" ]; then
+            log_success "✓ Redis: Running"
+        else
+            log_warning "⚠ Redis: $redis_status"
+        fi
+    else
+        log_error "✗ Redis: Not found"
+    fi
+    
+    # Backend
+    if kubectl get pod -l component=backend -n "$namespace" &>/dev/null; then
+        backend_status=$(kubectl get pods -l component=backend -n "$namespace" -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "Unknown")
+        backend_ready=$(kubectl get pods -l component=backend -n "$namespace" -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "Unknown")
+        if [ "$backend_status" == "Running" ] && [ "$backend_ready" == "True" ]; then
+            log_success "✓ Backend: Running and Ready"
+        else
+            log_warning "⚠ Backend: $backend_status (Ready: $backend_ready)"
+        fi
+    else
+        log_error "✗ Backend: Not found"
+    fi
 }
 
 # =============================================================================
