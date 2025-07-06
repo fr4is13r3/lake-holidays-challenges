@@ -132,6 +132,10 @@ module "key_vault" {
   google_client_secret    = var.google_client_secret
   microsoft_client_secret = var.microsoft_client_secret
   openai_api_key         = var.openai_api_key
+  
+  # Audit et monitoring
+  enable_key_vault_audit     = var.environment == "prod"
+  log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
 }
 
 # Module Container Registry
@@ -217,6 +221,21 @@ module "aks" {
   container_registry_id      = module.container_registry.container_registry_id
   log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
   key_vault_id              = module.key_vault.key_vault_id
+}
+
+# Configuration des permissions Key Vault pour AKS (après création du cluster)
+resource "azurerm_key_vault_access_policy" "aks_kubelet_keyvault_access" {
+  key_vault_id = module.key_vault.key_vault_id
+  tenant_id    = data.azurerm_client_config.current.tenant_id
+  object_id    = module.aks.kubelet_identity[0].object_id
+  
+  # Permissions minimales pour le CSI Secret Store Driver
+  secret_permissions = [
+    "Get",
+    "List"
+  ]
+  
+  depends_on = [module.aks, module.key_vault]
 }
 
 # Données de configuration Azure

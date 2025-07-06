@@ -166,8 +166,11 @@ substitute_variables() {
         log_warning "OpenAI endpoint non configuré dans Terraform"
     fi
     
-    # Récupérer l'identity client ID pour Workload Identity
-    AKS_CLIENT_ID=$(az aks show --resource-group "$RESOURCE_GROUP" --name "$AKS_CLUSTER_NAME" --query identityProfile.kubeletidentity.clientId -o tsv)
+    # Récupérer l'identity client ID pour Workload Identity (kubelet identity)
+    AKS_KUBELET_IDENTITY_CLIENT_ID=$(az aks show --resource-group "$RESOURCE_GROUP" --name "$AKS_CLUSTER_NAME" --query identityProfile.kubeletidentity.clientId -o tsv)
+    
+    # Log pour debug
+    log_info "AKS Kubelet Identity Client ID: $AKS_KUBELET_IDENTITY_CLIENT_ID"
     
     # Remplacements dans le fichier
     sed \
@@ -182,7 +185,7 @@ substitute_variables() {
         -e "s/{{SUBSCRIPTION_ID}}/$SUBSCRIPTION_ID/g" \
         -e "s/{{RESOURCE_GROUP}}/$RESOURCE_GROUP/g" \
         -e "s/{{TENANT_ID}}/$TENANT_ID/g" \
-        -e "s/{{AKS_CLIENT_ID}}/$AKS_CLIENT_ID/g" \
+        -e "s/{{AKS_KUBELET_IDENTITY_CLIENT_ID}}/$AKS_KUBELET_IDENTITY_CLIENT_ID/g" \
         "$file" > "$temp_file"
 }
 
