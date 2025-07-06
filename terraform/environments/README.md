@@ -59,8 +59,8 @@ Les secrets ne doivent **JAMAIS** être stockés dans les fichiers `.tfvars` ver
 #### 1. Variables d'Environnement (Recommandé pour CI/CD)
 ```bash
 export TF_VAR_jwt_secret_key="votre-jwt-secret-super-securise"
-export TF_VAR_google_client_secret="votre-google-oauth-secret"
-export TF_VAR_microsoft_client_secret="votre-microsoft-oauth-secret"
+export GOOGLE_CLIENT_SECRET="votre-google-oauth-secret"
+export MICROSOFT_CLIENT_SECRET="votre-microsoft-oauth-secret"
 export TF_VAR_openai_api_key="votre-openai-api-key"
 ```
 
@@ -84,8 +84,8 @@ terraform apply \
 Configurez ces secrets dans votre repository GitHub :
 - `AZURE_CREDENTIALS`
 - `TF_VAR_JWT_SECRET_KEY`
-- `TF_VAR_GOOGLE_CLIENT_SECRET`
-- `TF_VAR_MICROSOFT_CLIENT_SECRET`
+- `GOOGLE_CLIENT_SECRET`
+- `MICROSOFT_CLIENT_SECRET`
 - `TF_VAR_OPENAI_API_KEY`
 
 ## 🔧 Différences par Environnement

@@ -6,11 +6,14 @@ on:
       - main
       - develop
       - 'feature/*'
+    paths:
+      - 'frontend/**'
+      - 'backend/**'
+      - 'k8s/**'
   pull_request:
     branches:
       - main
       - develop
-
 env:
   # Configuration globale du workflow
   NAMESPACE: lake-holidays-${{ github.ref_name == 'main' && 'prod' || github.ref_name == 'develop' && 'staging' || 'dev' }}

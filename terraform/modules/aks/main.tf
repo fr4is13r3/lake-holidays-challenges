@@ -189,6 +189,9 @@ resource "azurerm_kubernetes_cluster_node_pool" "apps" {
   os_disk_size_gb = 50
   os_type         = "Linux"
   
+  # Configuration réseau
+  vnet_subnet_id = azurerm_subnet.aks.id
+  
   # Labels et taints pour la séparation des charges
   node_labels = {
     "nodepool" = "apps"

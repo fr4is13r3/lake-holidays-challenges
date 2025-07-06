@@ -139,8 +139,8 @@ export ARM_SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
 export ARM_TENANT_ID="$(az account show --query tenantId -o tsv)"
 
 # OAuth Secrets (optionnels)
-export TF_VAR_google_client_secret=""
-export TF_VAR_microsoft_client_secret=""
+export GOOGLE_CLIENT_SECRET=""
+export MICROSOFT_CLIENT_SECRET=""
 
 # OpenAI API Key (optionnel)
 export TF_VAR_openai_api_key=""

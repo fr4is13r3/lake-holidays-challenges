@@ -115,7 +115,7 @@ resource "azurerm_key_vault_secret" "jwt_secret" {
 
 # Secret pour les clés d'API externes (Google OAuth)
 resource "azurerm_key_vault_secret" "google_client_secret" {
-  count = var.google_client_secret != "" ? 1 : 0
+  count = var.google_client_secret != null && var.google_client_secret != "" ? 1 : 0
   
   name         = "google-client-secret"
   value        = var.google_client_secret
@@ -129,11 +129,16 @@ resource "azurerm_key_vault_secret" "google_client_secret" {
     SecretType = "OAuth"
     Provider   = "Google"
   })
+  
+  lifecycle {
+    ignore_changes = [value]
+    prevent_destroy = true
+  }
 }
 
 # Secret pour Microsoft OAuth
 resource "azurerm_key_vault_secret" "microsoft_client_secret" {
-  count = var.microsoft_client_secret != "" ? 1 : 0
+  count = var.microsoft_client_secret != null && var.microsoft_client_secret != "" ? 1 : 0
   
   name         = "microsoft-client-secret"
   value        = var.microsoft_client_secret
@@ -147,11 +152,16 @@ resource "azurerm_key_vault_secret" "microsoft_client_secret" {
     SecretType = "OAuth"
     Provider   = "Microsoft"
   })
+  
+  lifecycle {
+    ignore_changes = [value]
+    prevent_destroy = true
+  }
 }
 
 # Secret pour OpenAI API Key (si non Azure OpenAI)
 resource "azurerm_key_vault_secret" "openai_api_key" {
-  count = var.openai_api_key != "" ? 1 : 0
+  count = var.openai_api_key != null && var.openai_api_key != "" ? 1 : 0
   
   name         = "openai-api-key"
   value        = var.openai_api_key
@@ -165,6 +175,11 @@ resource "azurerm_key_vault_secret" "openai_api_key" {
     SecretType = "API"
     Provider   = "OpenAI"
   })
+  
+  lifecycle {
+    ignore_changes = [value]
+    prevent_destroy = true
+  }
 }
 
 # Identité managée pour Container Apps
