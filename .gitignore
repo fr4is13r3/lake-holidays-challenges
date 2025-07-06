@@ -164,3 +164,4 @@ bdd/steps/__pycache__/scoring_leaderboard_steps.cpython-312.pyc
 bdd/steps/__pycache__/season_management_steps.cpython-312.pyc
 bdd/steps/__pycache__/simple_test_steps.cpython-312.pyc
 bdd/steps/__pycache__/user_profile_steps.cpython-312.pyc
+**/terraform-prod.tfplan

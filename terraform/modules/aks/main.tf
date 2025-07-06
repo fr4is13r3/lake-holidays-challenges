@@ -93,6 +93,9 @@ resource "azurerm_kubernetes_cluster" "main" {
   dns_prefix          = local.dns_prefix
   kubernetes_version  = var.kubernetes_version
 
+  # AJOUT: Nom personnalisé pour le resource group des nœuds
+  node_resource_group = "${var.resource_group_name}_aks"
+
   # Configuration du node pool par défaut
   default_node_pool {
     name                = "default"

@@ -28,17 +28,14 @@ on:
       - main
       - develop
 
-env:
-  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-  ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-
 jobs:
   terraform:
     name: 🏗️ Terraform ${{ github.event.inputs.action || 'plan' }}
     runs-on: ubuntu-latest
     
+    # Utiliser l'environnement GitHub Enterprise pour la branche main
+    environment: ${{ github.ref_name == 'main' && 'prod' || null }}
+
     env:
       TF_VAR_environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'prod' || 'dev') }}
     
@@ -59,13 +56,7 @@ jobs:
       - name: 🔐 Azure Login
         uses: azure/login@v1
         with:
-          creds: |
-            {
-              "clientId": "${{ secrets.AZURE_CLIENT_ID }}",
-              "clientSecret": "${{ secrets.AZURE_CLIENT_SECRET }}",
-              "subscriptionId": "${{ secrets.AZURE_SUBSCRIPTION_ID }}",
-              "tenantId": "${{ secrets.AZURE_TENANT_ID }}"
-            }
+          creds: "${{ secrets.AZURE_CREDENTIALS }}"
 
       - name: 🔍 Terraform Format Check
         run: terraform fmt -check -recursive
@@ -79,10 +70,10 @@ jobs:
       - name: 🏗️ Terraform Init
         run: |
           terraform init \
-            -backend-config="storage_account_name=${{ secrets.TF_STATE_STORAGE_ACCOUNT }}" \
-            -backend-config="container_name=${{ secrets.TF_STATE_CONTAINER }}" \
+            -backend-config="storage_account_name=${{ vars.TF_STATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ vars.TF_STATE_CONTAINER }}" \
             -backend-config="key=lake-holidays-${{ env.TF_VAR_environment }}.tfstate" \
-            -backend-config="resource_group_name=${{ secrets.TF_STATE_RG }}"
+            -backend-config="resource_group_name=${{ vars.TF_STATE_RG }}"
 
       - name: 📋 Terraform Plan
         id: plan
@@ -93,7 +84,7 @@ jobs:
             -var="google_client_secret=${{ secrets.GOOGLE_CLIENT_SECRET }}" \
             -var="microsoft_client_secret=${{ secrets.MICROSOFT_CLIENT_SECRET }}" \
             -var="openai_api_key=${{ secrets.OPENAI_API_KEY }}" \
-            -var="notification_email=${{ secrets.NOTIFICATION_EMAIL }}" \
+            -var="notification_email=${{ vars.NOTIFICATION_EMAIL }}" \
             -out=tfplan \
             -detailed-exitcode
         continue-on-error: true
@@ -131,7 +122,7 @@ jobs:
             -var="google_client_secret=${{ secrets.GOOGLE_CLIENT_SECRET }}" \
             -var="microsoft_client_secret=${{ secrets.MICROSOFT_CLIENT_SECRET }}" \
             -var="openai_api_key=${{ secrets.OPENAI_API_KEY }}" \
-            -var="notification_email=${{ secrets.NOTIFICATION_EMAIL }}" \
+            -var="notification_email=${{ vars.NOTIFICATION_EMAIL }}" \
             -auto-approve
 
       - name: 📊 Terraform Output
