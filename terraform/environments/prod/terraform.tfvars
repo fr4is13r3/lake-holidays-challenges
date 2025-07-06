@@ -13,10 +13,10 @@ location    = "France Central"
 # =============================================================================
 kubernetes_version       = "1.33"  # Version supportée
 aks_node_count           = 1
-aks_vm_size             = "Standard_B2s"  # 2 vCPU, 4GB RAM - Économique
-aks_enable_auto_scaling = false  # Un seul node fixe
+aks_vm_size             = "Standard_B4as_v2"  # 2 vCPU, 4GB RAM - Économique
+aks_enable_auto_scaling = true  # Un seul node fixe
 aks_min_count           = 1
-aks_max_count           = 1
+aks_max_count           = 3
 
 # =============================================================================
 # CONFIGURATION STORAGE (haute disponibilité)

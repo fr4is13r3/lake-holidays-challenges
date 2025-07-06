@@ -12,11 +12,11 @@ location    = "France Central"
 # CONFIGURATION AKS (Azure Kubernetes Service)
 # =============================================================================
 kubernetes_version       = "1.28"
-aks_node_count           = 2
-aks_vm_size             = "Standard_D2s_v3"  # 2 vCPU, 8GB RAM
-aks_enable_auto_scaling = true
+aks_node_count           = 1
+aks_vm_size             = "Standard_B4as_v2"  # 2 vCPU, 8GB RAM
+aks_enable_auto_scaling = false
 aks_min_count           = 1
-aks_max_count           = 3
+aks_max_count           = 1
 
 # =============================================================================
 # CONFIGURATION STORAGE (fichiers uploadés)
@@ -34,11 +34,11 @@ openai_sku_name     = "S0"
 # Modèles de base pour dev (si activé)
 openai_model_deployments = [
   {
-    name           = "gpt-35-turbo"
-    model_name     = "gpt-35-turbo"
-    model_version  = "0613"
+    name           = "gpt-4o-mini"
+    model_name     = "gpt-4o-mini"
+    model_version  = "2024-07-18"
     scale_type     = "Standard"
-    scale_capacity = 10
+    capacity       = 30
   }
 ]
 
@@ -66,13 +66,13 @@ notification_email = ""  # Optionnel en dev
 # =============================================================================
 tags = {
   Environment     = "Development"
-  CostCenter      = "Development"
-  Owner          = "DevTeam"
   AutoShutdown   = "true"
-  Project        = "lake-holidays-challenge"
-  Terraform      = "true"
-  Architecture   = "AKS"
-  DataStorage    = "Integrated"  # PostgreSQL/Redis intégrés
+  BackupPolicy    = "Daily"
+  MonitoringLevel = "Full"
+  Project         = "lake-holidays-challenge"
+  Terraform       = "true"
+  Architecture    = "AKS"
+  DataStorage     = "Integrated"  # PostgreSQL/Redis intégrés
 }
 
 # =============================================================================

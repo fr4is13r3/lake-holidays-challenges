@@ -260,9 +260,26 @@ jobs:
             "$manifest" | kubectl apply -f -
         done
         
-        # Attendre que les déploiements soient prêts
-        kubectl rollout status deployment/backend -n ${{ env.NAMESPACE }} --timeout=600s
-        kubectl rollout status deployment/frontend -n ${{ env.NAMESPACE }} --timeout=600s
+        # Attendre que les déploiements soient prêts avec timeout étendu
+        echo "🚀 Waiting for backend deployment..."
+        kubectl rollout status deployment/backend -n ${{ env.NAMESPACE }} --timeout=900s || {
+          echo "❌ Backend deployment failed or timed out"
+          echo "🔍 Debugging backend deployment..."
+          kubectl get pods -n ${{ env.NAMESPACE }} -l component=backend
+          kubectl describe deployment/backend -n ${{ env.NAMESPACE }}
+          kubectl logs -l component=backend -n ${{ env.NAMESPACE }} --tail=50
+          exit 1
+        }
+        
+        echo "🚀 Waiting for frontend deployment..."
+        kubectl rollout status deployment/frontend -n ${{ env.NAMESPACE }} --timeout=600s || {
+          echo "❌ Frontend deployment failed or timed out"
+          echo "🔍 Debugging frontend deployment..."
+          kubectl get pods -n ${{ env.NAMESPACE }} -l component=frontend
+          kubectl describe deployment/frontend -n ${{ env.NAMESPACE }}
+          kubectl logs -l component=frontend -n ${{ env.NAMESPACE }} --tail=50
+          exit 1
+        }
         
         # Récupérer l'URL du frontend
         echo "frontend-url=$FRONTEND_DOMAIN" >> $GITHUB_OUTPUT

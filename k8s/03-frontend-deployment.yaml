@@ -9,7 +9,7 @@ metadata:
     component: frontend
     version: "{{VERSION}}"
 spec:
-  replicas: 2
+  replicas: 1
   strategy:
     type: RollingUpdate
     rollingUpdate:
