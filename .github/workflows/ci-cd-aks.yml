@@ -1,4 +1,4 @@
-name: CI/CD Pipeline - Lake Holidays Challenge AKS
+name: 🏭 CI/CD Pipeline - Lake Holidays Challenge AKS
 
 on:
   push:
