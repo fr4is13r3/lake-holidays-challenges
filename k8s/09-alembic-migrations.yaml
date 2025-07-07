@@ -48,9 +48,15 @@ spec:
       - name: alembic
         image: "{{CONTAINER_REGISTRY}}/lake-holidays-backend:{{VERSION}}"
         imagePullPolicy: Always
-        command: ["alembic", "upgrade", "head"]
+        command: 
+        - /bin/sh
+        - -c
+        - |
+          export DATABASE_URL="postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
+          echo "Using DATABASE_URL: postgresql+asyncpg://postgres:***@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
+          alembic upgrade head
         env:
-        # Configuration de base de données
+        # Configuration de base de données - variables individuelles
         - name: POSTGRES_DB
           valueFrom:
             configMapKeyRef:
@@ -77,21 +83,21 @@ spec:
             configMapKeyRef:
               name: lake-holidays-config
               key: ENVIRONMENT
-        - name: JWT_SECRET_KEY
-          valueFrom:
-            secretKeyRef:
-              name: lake-holidays-secrets
-              key: JWT_SECRET_KEY
-        - name: REDIS_HOST
-          valueFrom:
-            configMapKeyRef:
-              name: lake-holidays-config
-              key: REDIS_HOST
-        - name: REDIS_PORT
-          valueFrom:
-            configMapKeyRef:
-              name: lake-holidays-config
-              key: REDIS_PORT
+        # - name: JWT_SECRET_KEY
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: lake-holidays-secrets
+        #       key: JWT_SECRET_KEY
+        # - name: REDIS_HOST
+        #   valueFrom:
+        #     configMapKeyRef:
+        #       name: lake-holidays-config
+        #       key: REDIS_HOST
+        # - name: REDIS_PORT
+        #   valueFrom:
+        #     configMapKeyRef:
+        #       name: lake-holidays-config
+        #       key: REDIS_PORT
         resources:
           requests:
             memory: "256Mi"

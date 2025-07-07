@@ -166,3 +166,10 @@ bdd/steps/__pycache__/simple_test_steps.cpython-312.pyc
 bdd/steps/__pycache__/user_profile_steps.cpython-312.pyc
 **/terraform-prod.tfplan
 .terraform-backend.conf
+
+# Application folders
+uploads/
+
+# Developer Tools
+tools
+.vscode/
