@@ -127,7 +127,7 @@ spec:
           driver: secrets-store.csi.k8s.io
           readOnly: true
           volumeAttributes:
-            secretProviderClass: "lake-holidays-secrets-spc"
+            secretProviderClass: "lake-holidays-secrets"
       # Nettoyer les jobs terminés automatiquement après 1 heure
   ttlSecondsAfterFinished: 3600
   backoffLimit: 3
