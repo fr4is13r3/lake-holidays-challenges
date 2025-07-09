@@ -49,7 +49,7 @@ spec:
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: lake-holidays-secrets
+              name: lake-holidays-config
               key: POSTGRES_PASSWORD
         - name: PGDATA
           value: /var/lib/postgresql/data/pgdata
