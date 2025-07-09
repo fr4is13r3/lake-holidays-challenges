@@ -92,27 +92,27 @@ spec:
         - name: JWT_SECRET_KEY
           valueFrom:
             secretKeyRef:
-              name: lake-holidays-secrets
+              name: lake-holidays-config
               key: JWT_SECRET_KEY
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: lake-holidays-secrets
+              name: lake-holidays-config
               key: POSTGRES_PASSWORD
         - name: GOOGLE_CLIENT_SECRET
           valueFrom:
             secretKeyRef:
-              name: lake-holidays-secrets
+              name: lake-holidays-config
               key: GOOGLE_CLIENT_SECRET
         - name: MICROSOFT_CLIENT_SECRET
           valueFrom:
             secretKeyRef:
-              name: lake-holidays-secrets
+              name: lake-holidays-config
               key: MICROSOFT_CLIENT_SECRET
         - name: AZURE_STORAGE_CONNECTION_STRING
           valueFrom:
             secretKeyRef:
-              name: lake-holidays-secrets
+              name: lake-holidays-config
               key: AZURE_STORAGE_CONNECTION_STRING
         # Configuration des ressources
         resources:
