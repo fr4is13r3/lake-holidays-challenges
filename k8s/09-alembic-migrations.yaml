@@ -95,21 +95,6 @@ spec:
             configMapKeyRef:
               name: lake-holidays-config
               key: ENVIRONMENT
-        # - name: JWT_SECRET_KEY
-        #   valueFrom:
-        #     secretKeyRef:
-        #       name: lake-holidays-secrets
-        #       key: JWT_SECRET_KEY
-        # - name: REDIS_HOST
-        #   valueFrom:
-        #     configMapKeyRef:
-        #       name: lake-holidays-config
-        #       key: REDIS_HOST
-        # - name: REDIS_PORT
-        #   valueFrom:
-        #     configMapKeyRef:
-        #       name: lake-holidays-config
-        #       key: REDIS_PORT
         resources:
           requests:
             memory: "256Mi"
