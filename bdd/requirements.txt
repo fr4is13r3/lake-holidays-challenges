@@ -39,7 +39,7 @@ behave-html-formatter==0.9.10
 assertpy==1.1
 
 # Gestion des images pour les tests photo
-Pillow==10.1.0
+Pillow==10.3.0
 
 # Simulation de géolocalisation
 geopy==2.4.1
