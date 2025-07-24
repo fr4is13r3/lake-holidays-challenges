@@ -32,7 +32,7 @@ python-magic==0.4.27
 
 # Geolocation & Maps
 geopy==2.4.1
-requests==2.31.0
+requests==2.32.4
 
 # Testing
 pytest==7.4.3
