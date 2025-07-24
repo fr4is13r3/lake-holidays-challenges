@@ -27,7 +27,7 @@ azure-ai-textanalytics==5.3.0
 azure-storage-blob==12.19.0
 
 # Image Processing
-Pillow==10.1.0
+Pillow==10.3.0
 python-magic==0.4.27
 
 # Geolocation & Maps
@@ -46,7 +46,7 @@ structlog==23.2.0
 prometheus-client==0.19.0
 
 # Development
-black==23.11.0
+black==24.3.0
 isort==5.12.0
 flake8==6.1.0
 mypy==1.7.1
