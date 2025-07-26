@@ -48,12 +48,12 @@ Exigences Docker :
 - Séparation des préoccupations (frontend/backend/db)
 ```
 
-### CI/CD Azure DevOps
+### CI/CD GitHub Actions
 ```
 Exigences CI/CD :
-- Pipeline Azure DevOps YAML
+- Pipeline GitHub Actions YAML
 - Étapes : build, test, security scan, deploy
-- Déploiement sur Azure Container Instances ou App Service
+- Déploiement sur Azure Kubernetes Services
 - Environnements : dev, staging, production
 - Rollback automatique en cas d'échec
 - Monitoring et alertes

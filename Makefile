@@ -351,7 +351,7 @@ terraform-docs: ## Générer la documentation Terraform
 
 azure-login: ## Connexion Azure CLI
 	@echo -e "$(BLUE)🔐 Connexion Azure...$(NC)"
-	az login
+	az login --scope https://management.azure.com/.default
 
 azure-info: ## Informations compte Azure
 	@echo -e "$(BLUE)ℹ️  Informations Azure...$(NC)"

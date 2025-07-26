@@ -52,6 +52,62 @@ az ad sp create-for-rbac --name "lake-holidays-sp" \
 
 # Résultat à ajouter dans GitHub Secrets (AZURE_CREDENTIALS)
 ```
+Ou
+```bash
+# Créer une User Managed Identity
+
+## Créer le groupe de ressources si nécessaire
+az group create --name "lake-holidays-identity-rg" --location "France Central"
+
+## Créer la User Managed Identity : lake-holidays-umi-gha
+az identity create \
+    --name "lake-holidays-umi-gha" \
+    --resource-group "lake-holidays-identity-rg" \
+    --location "France Central"
+
+## Récupérer les informations importantes
+az identity show \
+    --name "lake-holidays-umi-gha" \
+    --resource-group "lake-holidays-identity-rg" \
+    --query '{clientId: clientId, principalId: principalId, id: id}'
+
+## Assigner les permissions nécessaires
+### Récupérer l'ID de l'abonnement
+SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+
+### Récupérer le Principal ID de la Managed Identity
+PRINCIPAL_ID=$(az identity show --name "lake-holidays-umi-gha" --resource-group "lake-holidays-identity-rg" --query principalId -o tsv)
+
+### Assigner le rôle Contributor au niveau de l'abonnement 
+az role assignment create \
+    --assignee $PRINCIPAL_ID \
+    --role "Contributor" \
+    --scope "/subscriptions/$SUBSCRIPTION_ID"
+
+## Configurer la Federated Identity pour GitHub - Cette étape permet à GitHub Actions d'utiliser la Managed Identity sans secret 
+### Récupérer les informations de la Managed Identity
+CLIENT_ID=$(az identity show --name "lake-holidays-umi-gha" --resource-group "lake-holidays-identity-rg" --query clientId -o tsv)
+IDENTITY_ID=$(az identity show --name "lake-holidays-umi-gha" --resource-group "lake-holidays-identity-rg" --query id -o tsv)
+
+### Créer la federated credential avec Azure CLI
+az identity federated-credential create \
+    --name "github-actions-credential" \
+    --identity-name "lake-holidays-umi-gha" \
+    --resource-group "lake-holidays-identity-rg" \
+    --issuer "https://token.actions.githubusercontent.com" \
+    --subject "repo:fr4is13r3/lake-holidays-challenges:ref:refs/heads/main" \
+    --audience "api://AzureADTokenExchange"
+
+# Pour autoriser toutes les branches (optionnel)
+az identity federated-credential create \
+    --name "github-actions-credential-all" \
+    --identity-name "lake-holidays-umi-gha" \
+    --resource-group "lake-holidays-identity-rg" \
+    --issuer "https://token.actions.githubusercontent.com" \
+    --subject "repo:fr4is13r3/lake-holidays-challenges:*" \
+    --audience "api://AzureADTokenExchange"
+
+```
 
 ### 3. Configuration des Variables
 
@@ -87,8 +143,11 @@ openai_location    = "East US"  # Vérifier la disponibilité
 #### Secrets GitHub
 ```bash
 # Secrets requis dans GitHub Repository Settings > Secrets
-AZURE_CREDENTIALS              # JSON du Service Principal
-AZURE_CONTAINER_REGISTRY       # Nom du registry (sans .azurecr.io)
+#AZURE_CREDENTIALS             # JSON du Service Principal ##TOREMOVE
+TENANT_ID                     # Identifiance de tenant Azure
+SUBSCRIPTION_ID               # Identifiant de souscription
+CLIENT_ID                     # Identifiant client de la managed identity
+AZURE_CONTAINER_REGISTRY      # Nom du registry (sans .azurecr.io)
 AKS_CLUSTER_NAME              # Nom du cluster AKS
 AZURE_RESOURCE_GROUP          # Nom du resource group
 KEY_VAULT_NAME                # Nom du Key Vault

@@ -45,6 +45,8 @@ provider "azurerm" {
       prevent_deletion_if_contains_resources = false
     }
   }
+  # Terraform utilisera automatiquement az login credentials
+  use_cli = true
 }
 
 provider "azuread" {}
