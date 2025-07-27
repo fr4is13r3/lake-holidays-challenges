@@ -12,6 +12,7 @@ from sqlalchemy.pool import StaticPool
 # Force test environment and SQLite for tests
 os.environ["ENVIRONMENT"] = "test"
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
+os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "1440"  # 24 hours for testing
 
 from app.main import app
 from app.database import get_db, Base

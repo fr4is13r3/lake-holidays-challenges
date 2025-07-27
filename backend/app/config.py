@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     
     # Security
     secret_key: str = "your-secret-key-change-in-production"
-    access_token_expire_minutes: int = 30
+    access_token_expire_minutes: int = 1440  # 24 hours (24 * 60 minutes)
     refresh_token_expire_days: int = 7
     algorithm: str = "HS256"
     
