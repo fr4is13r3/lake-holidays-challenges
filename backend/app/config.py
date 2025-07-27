@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     
     # Database
-    database_url: str = "sqlite+aiosqlite:///./lake_holidays.db"
+    database_url: str = "postgresql+asyncpg://postgres:password@localhost:5432/lake_holidays"
     
     def __init__(self, **data):
         super().__init__(**data)
