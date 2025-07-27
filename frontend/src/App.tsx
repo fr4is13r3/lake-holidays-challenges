@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { User, MapPin, Trophy, Camera, Star, Home, Target, Plus, Calendar, Upload, MapPin as LocationIcon } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { User, MapPin, Trophy, Camera, Star, Home, Target, Plus, Calendar,  Clock, HelpCircle, Upload, MapPin as LocationIcon, X, CheckCircle, XCircle } from 'lucide-react';
 
 // Mock data for demonstration
 const mockUser = {
@@ -31,7 +31,30 @@ const mockChallenges = [
     timeLimit: 300,
     difficulty: "medium",
     location: "Piton de la Fournaise",
-    completed: false
+    completed: false,
+    content: {
+      questions: [
+        {
+          question: "Quel est l'épice emblématique de la cuisine créole ?",
+          options: ["Poivre", "Curcuma", "Paprika", "Gingembre"],
+          correct_answer: 1,
+          hint: "Cette épice donne une couleur dorée aux plats créoles"
+        },
+        {
+          question: "Quelle est la hauteur approximative du Piton de la Fournaise ?",
+          options: ["2631m", "3071m", "2000m", "4000m"],
+          correct_answer: 0,
+          hint: "Le point culminant fait plus de 2600 mètres"
+        },
+        {
+          question: "Comment appelle-t-on la dernière éruption en date ?",
+          options: ["Cratère Dolomieu", "Cratère Bory", "Enclos Fouqué", "Pas de Bellecombe"],
+          correct_answer: 2,
+          hint: "C'est le nom de l'enceinte où se produisent la plupart des éruptions"
+        }
+      ],
+      time_limit: 30
+    }
   },
   {
     id: 2,
@@ -80,6 +103,53 @@ function App() {
   const [user, setUser] = useState<typeof mockUser>(mockUser);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isHandlingOAuth, setIsHandlingOAuth] = useState<boolean>(false);
+
+
+  // Quiz types
+  interface QuizQuestion {
+    question: string;
+    options: string[];
+    correct_answer: number;
+    hint: string;
+  }
+
+  interface QuizChallenge {
+    id: number;
+    title: string;
+    content: {
+      questions: QuizQuestion[];
+      time_limit: number;
+    };
+    points: number;
+  }
+
+  interface QuizResult {
+    correct_count: number;
+    total_questions: number;
+    percentage: number;
+    points_awarded: number;
+    hints_used: number;
+    time_taken: number;
+    feedback_message: string;
+    detailed_results: Array<{
+      question_index: number;
+      question: string;
+      selected_answer: number;
+      correct_answer: number;
+      is_correct: boolean;
+      options: string[];
+    }>;
+  }
+
+  // Quiz state
+  const [activeQuiz, setActiveQuiz] = useState<QuizChallenge | null>(null);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [selectedAnswers, setSelectedAnswers] = useState<number[]>([]);
+  const [timeRemaining, setTimeRemaining] = useState(0);
+  const [hintsUsed, setHintsUsed] = useState(0);
+  const [showHint, setShowHint] = useState(false);
+  const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
+  const [startTime, setStartTime] = useState<number>(0);
 
   // Season creation state
   const [showSeasonForm, setShowSeasonForm] = useState<boolean>(false);
@@ -263,6 +333,324 @@ function App() {
     }
   };
 
+
+  // Quiz Functions
+  const startQuiz = (challenge: QuizChallenge) => {
+    setActiveQuiz(challenge);
+    setCurrentQuestionIndex(0);
+    setSelectedAnswers([]);
+    setTimeRemaining(challenge.content.time_limit * challenge.content.questions.length);
+    setHintsUsed(0);
+    setShowHint(false);
+    setQuizResult(null);
+    setStartTime(Date.now());
+  };
+
+  const closeQuiz = () => {
+    setActiveQuiz(null);
+    setCurrentQuestionIndex(0);
+    setSelectedAnswers([]);
+    setTimeRemaining(0);
+    setHintsUsed(0);
+    setShowHint(false);
+    setQuizResult(null);
+    setStartTime(0);
+  };
+
+  const selectAnswer = (answerIndex: number) => {
+    const newAnswers = [...selectedAnswers];
+    newAnswers[currentQuestionIndex] = answerIndex;
+    setSelectedAnswers(newAnswers);
+  };
+
+  const useHint = () => {
+    setHintsUsed(prev => prev + 1);
+    setShowHint(true);
+  };
+
+  const nextQuestion = () => {
+    if (currentQuestionIndex < activeQuiz.content.questions.length - 1) {
+      setCurrentQuestionIndex(prev => prev + 1);
+      setShowHint(false);
+    } else {
+      submitQuiz();
+    }
+  };
+
+  const submitQuiz = React.useCallback(async () => {
+    if (!activeQuiz) return;
+
+    const timeTaken = Math.floor((Date.now() - startTime) / 1000);
+    
+    // Simulate quiz submission (in real app, this would be an API call)
+    const questions = activeQuiz.content.questions;
+    let correctCount = 0;
+    const detailedResults = selectedAnswers.map((answer, index) => {
+      const question = questions[index];
+      const isCorrect = answer === question.correct_answer;
+      if (isCorrect) correctCount++;
+      
+      return {
+        question_index: index,
+        question: question.question,
+        selected_answer: answer,
+        correct_answer: question.correct_answer,
+        is_correct: isCorrect,
+        options: question.options
+      };
+    });
+
+    // Calculate points
+    const basePoints = activeQuiz.points;
+    const pointsPerQuestion = Math.floor(basePoints / questions.length);
+    let earnedPoints = correctCount * pointsPerQuestion;
+
+    // Apply hint penalty
+    if (hintsUsed > 0) {
+      earnedPoints = Math.floor(earnedPoints * Math.max(0, 1 - (0.5 * hintsUsed)));
+    }
+
+    const percentage = (correctCount / questions.length) * 100;
+    let feedbackMessage = '';
+    
+    if (percentage === 100) {
+      feedbackMessage = hintsUsed === 0 
+        ? `Parfait ! Vous avez tout bon sans aide ! +${earnedPoints} points 🎉`
+        : `Excellent ! Toutes les bonnes réponses ! +${earnedPoints} points ⭐`;
+    } else if (percentage >= 80) {
+      feedbackMessage = `Très bien ! ${percentage.toFixed(0)}% de bonnes réponses. +${earnedPoints} points 👏`;
+    } else if (percentage >= 60) {
+      feedbackMessage = `Bien joué ! ${percentage.toFixed(0)}% de réussite. +${earnedPoints} points 👍`;
+    } else if (percentage >= 40) {
+      feedbackMessage = `Pas mal ! ${percentage.toFixed(0)}% de bonnes réponses. +${earnedPoints} points 📚`;
+    } else {
+      feedbackMessage = `Continue tes efforts ! ${percentage.toFixed(0)}% cette fois. +${earnedPoints} points 💪`;
+    }
+
+    setQuizResult({
+      correct_count: correctCount,
+      total_questions: questions.length,
+      percentage,
+      points_awarded: earnedPoints,
+      hints_used: hintsUsed,
+      time_taken: timeTaken,
+      feedback_message: feedbackMessage,
+      detailed_results: detailedResults
+    });
+
+    // Update user points
+    setUser(prev => ({
+      ...prev,
+      points: prev.points + earnedPoints,
+      dailyPoints: prev.dailyPoints + earnedPoints
+    }));
+  }, [activeQuiz, startTime, selectedAnswers, hintsUsed, setUser]);
+
+  // Timer effect
+  useEffect(() => {
+    if (activeQuiz && timeRemaining > 0 && !quizResult) {
+      const timer = setTimeout(() => {
+        setTimeRemaining(prev => prev - 1);
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    } else if (timeRemaining === 0 && activeQuiz && !quizResult) {
+      // Time's up, auto-submit
+      submitQuiz();
+    }
+  }, [timeRemaining, activeQuiz, quizResult, submitQuiz]);
+
+  // Quiz Modal Component
+  const QuizModal = () => {
+    if (!activeQuiz) return null;
+
+    const currentQuestion = activeQuiz.content.questions[currentQuestionIndex];
+    const isLastQuestion = currentQuestionIndex === activeQuiz.content.questions.length - 1;
+    const hasSelectedAnswer = selectedAnswers[currentQuestionIndex] !== undefined;
+
+    if (quizResult) {
+      // Quiz Results Screen
+      return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="text-center mb-6">
+              <div className="text-6xl mb-4">
+                {quizResult.percentage === 100 ? '🎉' : quizResult.percentage >= 80 ? '🌟' : 
+                 quizResult.percentage >= 60 ? '👏' : '📚'}
+              </div>
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">Quiz terminé !</h2>
+              <p className="text-lg text-gray-600">{quizResult.feedback_message}</p>
+            </div>
+
+            <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-4 mb-6">
+              <div className="grid grid-cols-2 gap-4 text-center">
+                <div>
+                  <div className="text-2xl font-bold text-blue-600">
+                    {quizResult.correct_count}/{quizResult.total_questions}
+                  </div>
+                  <div className="text-sm text-gray-600">Bonnes réponses</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-purple-600">{quizResult.points_awarded}</div>
+                  <div className="text-sm text-gray-600">Points gagnés</div>
+                </div>
+                <div>
+                  <div className="text-lg font-semibold text-orange-600">{quizResult.hints_used}</div>
+                  <div className="text-sm text-gray-600">Indices utilisés</div>
+                </div>
+                <div>
+                  <div className="text-lg font-semibold text-green-600">{quizResult.time_taken}s</div>
+                  <div className="text-sm text-gray-600">Temps pris</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3 mb-6">
+              <h3 className="font-bold text-gray-800">Détail des réponses :</h3>
+              {quizResult.detailed_results.map((result, index: number) => (
+                <div key={index} className="bg-gray-50 rounded-xl p-3">
+                  <div className="flex items-start space-x-2 mb-2">
+                    {result.is_correct ? (
+                      <CheckCircle className="w-5 h-5 text-green-500 mt-0.5" />
+                    ) : (
+                      <XCircle className="w-5 h-5 text-red-500 mt-0.5" />
+                    )}
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-800">{result.question}</p>
+                      <p className={`text-sm ${result.is_correct ? 'text-green-600' : 'text-red-600'}`}>
+                        Votre réponse: {result.options[result.selected_answer]}
+                      </p>
+                      {!result.is_correct && (
+                        <p className="text-sm text-green-600">
+                          Bonne réponse: {result.options[result.correct_answer]}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={closeQuiz}
+              className="w-full bg-gradient-to-r from-green-400 to-blue-400 text-white py-4 rounded-2xl font-semibold text-lg hover:from-green-500 hover:to-blue-500 transition-all duration-200"
+            >
+              Continuer
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // Quiz Question Screen
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-3xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-xl font-bold text-gray-800">{activeQuiz.title}</h2>
+              <p className="text-sm text-gray-600">
+                Question {currentQuestionIndex + 1} sur {activeQuiz.content.questions.length}
+              </p>
+            </div>
+            <button onClick={closeQuiz} className="text-gray-400 hover:text-gray-600">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          {/* Timer */}
+          <div className="flex items-center justify-center mb-6">
+            <div className="bg-gradient-to-r from-orange-100 to-red-100 rounded-full px-4 py-2 flex items-center space-x-2">
+              <Clock className="w-5 h-5 text-orange-600" />
+              <span className={`font-bold ${timeRemaining <= 10 ? 'text-red-600' : 'text-orange-600'}`}>
+                {Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}
+              </span>
+            </div>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="w-full bg-gray-200 rounded-full h-2 mb-6">
+            <div 
+              className="bg-gradient-to-r from-blue-400 to-purple-400 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${((currentQuestionIndex + 1) / activeQuiz.content.questions.length) * 100}%` }}
+            ></div>
+          </div>
+
+          {/* Question */}
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+              {currentQuestion.question}
+            </h3>
+
+            {/* Hint */}
+            {showHint && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4">
+                <div className="flex items-center space-x-2">
+                  <HelpCircle className="w-5 h-5 text-yellow-600" />
+                  <span className="text-sm font-medium text-yellow-800">Indice :</span>
+                </div>
+                <p className="text-sm text-yellow-700 mt-1">{currentQuestion.hint}</p>
+              </div>
+            )}
+
+            {/* Answer Options */}
+            <div className="space-y-3">
+              {currentQuestion.options.map((option: string, index: number) => (
+                <button
+                  key={index}
+                  onClick={() => selectAnswer(index)}
+                  className={`w-full text-left p-4 border-2 rounded-xl transition-all duration-200 ${
+                    selectedAnswers[currentQuestionIndex] === index
+                      ? 'border-blue-400 bg-blue-50 text-blue-800'
+                      : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                  }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                      selectedAnswers[currentQuestionIndex] === index
+                        ? 'border-blue-400 bg-blue-400'
+                        : 'border-gray-300'
+                    }`}>
+                      {selectedAnswers[currentQuestionIndex] === index && (
+                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                      )}
+                    </div>
+                    <span className="font-medium">{option}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex space-x-3">
+            {!showHint && (
+              <button
+                onClick={useHint}
+                className="flex-1 bg-yellow-100 text-yellow-700 py-3 rounded-xl font-semibold hover:bg-yellow-200 transition-all duration-200 flex items-center justify-center space-x-2"
+              >
+                <HelpCircle className="w-5 h-5" />
+                <span>Indice</span>
+              </button>
+            )}
+            
+            <button
+              onClick={nextQuestion}
+              disabled={!hasSelectedAnswer}
+              className={`flex-1 py-3 rounded-xl font-semibold transition-all duration-200 ${
+                hasSelectedAnswer
+                  ? 'bg-gradient-to-r from-blue-400 to-purple-400 text-white hover:from-blue-500 hover:to-purple-500'
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              {isLastQuestion ? 'Terminer' : 'Suivant'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+
   // Season validation functions
   const validateSeasonTitle = (title: string): string | null => {
     if (!title.trim()) return "Le titre de la saison est obligatoire";
@@ -379,6 +767,7 @@ function App() {
     } finally {
       setIsCreatingSeason(false);
     }
+
   };
 
   // Authentication Screen
@@ -760,7 +1149,13 @@ function App() {
                 )}
               </div>
               
-              <button className={`px-6 py-2 rounded-full font-semibold text-sm transition-all duration-200 ${
+              <button 
+                onClick={() => {
+                  if (challenge.type === 'quiz') {
+                    startQuiz(challenge);
+                  }
+                }}
+                className={`px-6 py-2 rounded-full font-semibold text-sm transition-all duration-200 ${
                 challenge.completed 
                   ? 'bg-green-100 text-green-600 cursor-not-allowed'
                   : 'bg-gradient-to-r from-purple-400 to-pink-400 text-white hover:from-purple-500 hover:to-pink-500 transform hover:scale-105'
@@ -1245,6 +1640,7 @@ function App() {
       {currentScreen === 'photos' && <PhotosScreen />}
       {currentScreen === 'profile' && <ProfileScreen />}
       <BottomNavigation />
+      <QuizModal />
     </div>
   );
 }
