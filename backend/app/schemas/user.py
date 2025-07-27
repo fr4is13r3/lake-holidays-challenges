@@ -34,16 +34,17 @@ class User(UserBase):
 
 # User Profile Schemas
 class UserProfileBase(BaseModel):
-    birth_date: Optional[datetime] = None
-    avatar_url: Optional[str] = None
+    display_name: str = Field(..., min_length=1, max_length=100, description="Display name/pseudo for the profile")
+    avatar_url: Optional[str] = Field(None, description="Selected avatar from predefined gallery")
+    age: Optional[int] = Field(None, ge=1, le=150, description="User age for challenge adaptation")
+    challenge_preferences: Optional[dict] = Field(None, description="Challenge type preferences (Sport, Culture, Photo, etc.)")
     bio: Optional[str] = Field(None, max_length=500)
-    preferences: Optional[dict] = None
 
 class UserProfileCreate(UserProfileBase):
-    pass
+    display_name: str = Field(..., min_length=1, max_length=100, description="Display name/pseudo (required)")
 
 class UserProfileUpdate(UserProfileBase):
-    pass
+    display_name: Optional[str] = Field(None, min_length=1, max_length=100, description="Display name/pseudo")
 
 class UserProfile(UserProfileBase):
     id: str
