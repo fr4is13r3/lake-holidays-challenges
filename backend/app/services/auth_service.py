@@ -195,11 +195,17 @@ class AuthService:
     
     async def logout_user(self, user_id: str, access_token: str):
         """Logout user and invalidate tokens."""
-        # In a production system, you would:
-        # 1. Add the token to a blacklist/redis cache
-        # 2. Remove refresh tokens from database
-        # This is a simplified implementation
-        logger.info("User logged out", user_id=user_id)
+        from app.utils.token_blacklist import token_blacklist
+        
+        # Add the access token to blacklist
+        await token_blacklist.blacklist_token(access_token)
+        
+        # In a production system, you would also:
+        # 1. Remove refresh tokens from database
+        # 2. Clear any Redis sessions
+        # 3. Log the logout event for security audit
+        
+        logger.info("User logged out successfully", user_id=user_id)
     
     def _hash_password(self, password: str) -> str:
         """Hash password using bcrypt."""

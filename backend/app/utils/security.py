@@ -15,6 +15,7 @@ import structlog
 from app.config import settings
 from app.database import get_db
 from app.models.user import User
+from app.utils.token_blacklist import token_blacklist
 
 logger = structlog.get_logger()
 
@@ -59,6 +60,11 @@ async def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    
+    # Check if token is blacklisted first
+    if await token_blacklist.is_blacklisted(credentials.credentials):
+        logger.info("Blacklisted token rejected")
+        raise credentials_exception
     
     try:
         # Decode JWT token
