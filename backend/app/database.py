@@ -108,8 +108,8 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 async def init_db():
     """Initialize database tables."""
     async with engine.begin() as conn:
-        # Import all models to ensure they are registered
-        from app import models  # noqa: F401
+        # Import only user models for now (focused on authentication)
+        from app.models.user import User, UserProfile  # noqa: F401
         
         # Create all tables
         await conn.run_sync(Base.metadata.create_all)

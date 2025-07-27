@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { User, MapPin, Trophy, Camera, Star, Home, Target, Plus } from 'lucide-react';
+import { authService, type RegisterRequest, type AuthResponse } from './services/authService';
 
 // Mock data for demonstration
 const mockUser = {
@@ -83,6 +84,7 @@ function App() {
   // Authentication state
   const [authMode, setAuthMode] = useState<'familyCode' | 'localAccount'>('familyCode');
   const [formData, setFormData] = useState({
+    email: '',
     username: '',
     password: '',
     confirmPassword: ''
@@ -91,13 +93,17 @@ function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Validation functions
+  const validateEmail = (email: string): string | null => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email) return "L'adresse email est requise";
+    if (!emailRegex.test(email)) return "L'adresse email n'est pas valide";
+    return null;
+  };
+
   const validateUsername = (username: string): string | null => {
     if (username.length < 3) return "Le nom d'utilisateur doit contenir au moins 3 caractères";
     if (username.length > 20) return "Le nom d'utilisateur ne doit pas dépasser 20 caractères";
     if (!/^[a-zA-Z0-9_-]+$/.test(username)) return "Le nom d'utilisateur ne peut contenir que des lettres, chiffres, _ et -";
-    // Simulate uniqueness check (in real app, this would be an API call)
-    const existingUsers = ['admin', 'test', 'user', 'famille'];
-    if (existingUsers.includes(username.toLowerCase())) return "Ce nom d'utilisateur existe déjà";
     return null;
   };
 
@@ -112,6 +118,9 @@ function App() {
 
   const validateForm = (): boolean => {
     const newErrors: {[key: string]: string} = {};
+    
+    const emailError = validateEmail(formData.email);
+    if (emailError) newErrors.email = emailError;
     
     const usernameError = validateUsername(formData.username);
     if (usernameError) newErrors.username = usernameError;
@@ -132,23 +141,60 @@ function App() {
     
     setIsSubmitting(true);
     
-    // Simulate account creation API call
+    // Prepare request data according to backend API schema
+    const requestData: RegisterRequest = {
+      email: formData.email,
+      username: formData.username,
+      password: formData.password,
+      confirm_password: formData.confirmPassword
+    };
+    
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Call real backend API
+      const authResponse: AuthResponse = await authService.register(requestData);
       
-      // Update user with new account info
+      // Store authentication data
+      localStorage.setItem('auth_token', authResponse.access_token);
+      localStorage.setItem('user_data', JSON.stringify({
+        id: authResponse.user_id,
+        name: authResponse.username || authResponse.email,
+        email: authResponse.email
+      }));
+      
+      // Update user with API response data
       setUser({
         ...mockUser,
-        name: formData.username,
-        id: Date.now() // Simple ID generation
+        name: authResponse.username || authResponse.email.split('@')[0],
+        id: parseInt(authResponse.user_id, 10) || Date.now()
       });
       
       // Auto-login after account creation
       setIsAuthenticated(true);
-    } catch {
-      setErrors({ general: "Erreur lors de la création du compte. Veuillez réessayer." });
+    } catch (error) {
+      console.error('Registration failed:', error);
+      setErrors({ 
+        general: error instanceof Error ? error.message : "Erreur lors de la création du compte. Veuillez réessayer." 
+      });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (token) {
+        await authService.logout(token);
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      // Clear local storage and reset state
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user_data');
+      setIsAuthenticated(false);
+      setFormData({ email: '', username: '', password: '', confirmPassword: '' });
+      setErrors({});
     }
   };
 
@@ -235,6 +281,28 @@ function App() {
                 {errors.general}
               </div>
             )}
+
+            {/* Email Field */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Adresse email
+              </label>
+              <input
+                type="email"
+                data-testid="email"
+                value={formData.email}
+                onChange={(e) => handleInputChange('email', e.target.value)}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors ${
+                  errors.email
+                    ? 'border-red-300 focus:border-red-400'
+                    : 'border-gray-300 focus:border-orange-400'
+                }`}
+                placeholder="papa@vacances.com"
+              />
+              {errors.email && (
+                <p className="text-red-600 text-sm mt-1">{errors.email}</p>
+              )}
+            </div>
 
             {/* Username Field */}
             <div>
@@ -682,6 +750,14 @@ function App() {
               <div className="w-12 h-6 bg-gray-300 rounded-full relative">
                 <div className="w-5 h-5 bg-white rounded-full absolute left-0.5 top-0.5"></div>
               </div>
+            </div>
+            <div className="pt-4 border-t border-gray-200">
+              <button
+                onClick={handleLogout}
+                className="w-full bg-red-500 hover:bg-red-600 text-white py-3 px-4 rounded-xl font-semibold transition-colors"
+              >
+                Se déconnecter
+              </button>
             </div>
           </div>
         </div>

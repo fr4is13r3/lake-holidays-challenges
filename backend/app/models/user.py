@@ -7,10 +7,10 @@ import uuid
 from datetime import datetime
 from typing import List, Optional
 from sqlalchemy import Column, String, DateTime, Boolean, Integer, ForeignKey, Text, JSON
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, Mapped
 
 from app.database import Base
+from app.models.types import GUID
 
 
 class User(Base):
@@ -20,7 +20,7 @@ class User(Base):
     """
     __tablename__ = "users"
 
-    id: Mapped[str] = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[str] = Column(GUID(), primary_key=True, default=uuid.uuid4)
     email: Mapped[str] = Column(String(255), unique=True, nullable=False, index=True)
     username: Mapped[Optional[str]] = Column(String(50), unique=True, nullable=True, index=True)
     
@@ -42,10 +42,11 @@ class User(Base):
     
     # Relationships
     profile: Mapped[Optional["UserProfile"]] = relationship("UserProfile", back_populates="user", uselist=False)
-    season_memberships: Mapped[List["SeasonMember"]] = relationship("SeasonMember", back_populates="user")
-    challenge_submissions: Mapped[List["ChallengeSubmission"]] = relationship("ChallengeSubmission", back_populates="user", foreign_keys="[ChallengeSubmission.user_id]")
-    scores: Mapped[List["Score"]] = relationship("Score", back_populates="user")
-    user_badges: Mapped[List["UserBadge"]] = relationship("UserBadge", back_populates="user")
+    # Other relationships temporarily commented out for initial testing
+    # season_memberships: Mapped[List["SeasonMember"]] = relationship("SeasonMember", back_populates="user")
+    # challenge_submissions: Mapped[List["ChallengeSubmission"]] = relationship("ChallengeSubmission", back_populates="user", foreign_keys="[ChallengeSubmission.user_id]")
+    # scores: Mapped[List["Score"]] = relationship("Score", back_populates="user")
+    # user_badges: Mapped[List["UserBadge"]] = relationship("UserBadge", back_populates="user")
 
     def __repr__(self):
         return f"<User {self.email}>"
@@ -58,8 +59,8 @@ class UserProfile(Base):
     """
     __tablename__ = "user_profiles"
 
-    id: Mapped[str] = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[str] = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, unique=True)
+    id: Mapped[str] = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[str] = Column(GUID(), ForeignKey("users.id"), nullable=False, unique=True)
     
     # Profile information
     display_name: Mapped[str] = Column(String(100), nullable=False)
