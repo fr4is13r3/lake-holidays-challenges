@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, MapPin, Trophy, Camera, Star, Home, Target, Plus, Clock, HelpCircle, X, CheckCircle, XCircle } from 'lucide-react';
+import { User, MapPin, Trophy, Camera, Star, Home, Target, Plus, Calendar,  Clock, HelpCircle, Upload, MapPin as LocationIcon, X, CheckCircle, XCircle } from 'lucide-react';
 
 // Mock data for demonstration
 const mockUser = {
@@ -99,10 +99,11 @@ const mockPhotos = [
 ];
 
 function App() {
-  const [currentScreen, setCurrentScreen] = useState<'home' | 'challenges' | 'leaderboard' | 'photos' | 'profile'>('home');
+  const [currentScreen, setCurrentScreen] = useState<'home' | 'challenges' | 'leaderboard' | 'photos' | 'profile' | 'seasons'>('home');
   const [user, setUser] = useState<typeof mockUser>(mockUser);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isHandlingOAuth, setIsHandlingOAuth] = useState<boolean>(false);
+
 
   // Quiz types
   interface QuizQuestion {
@@ -149,6 +150,20 @@ function App() {
   const [showHint, setShowHint] = useState(false);
   const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
   const [startTime, setStartTime] = useState<number>(0);
+
+  // Season creation state
+  const [showSeasonForm, setShowSeasonForm] = useState<boolean>(false);
+  const [seasonFormData, setSeasonFormData] = useState({
+    title: '',
+    description: '',
+    location: '',
+    start_date: '',
+    end_date: '',
+    cover_image: null as File | null
+  });
+  const [seasonErrors, setSeasonErrors] = useState<{[key: string]: string}>({});
+  const [isCreatingSeason, setIsCreatingSeason] = useState<boolean>(false);
+  const [createdSeason, setCreatedSeason] = useState<any>(null);
 
   // Check for OAuth callback on component mount
   React.useEffect(() => {
@@ -317,6 +332,7 @@ function App() {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
   };
+
 
   // Quiz Functions
   const startQuiz = (challenge: QuizChallenge) => {
@@ -634,6 +650,124 @@ function App() {
         </div>
       </div>
     );
+
+  // Season validation functions
+  const validateSeasonTitle = (title: string): string | null => {
+    if (!title.trim()) return "Le titre de la saison est obligatoire";
+    if (title.length < 3) return "Le titre doit contenir au moins 3 caractères";
+    if (title.length > 200) return "Le titre ne doit pas dépasser 200 caractères";
+    return null;
+  };
+
+  const validateSeasonDates = (startDate: string, endDate: string): string | null => {
+    if (!startDate) return "La date de début est obligatoire";
+    if (!endDate) return "La date de fin est obligatoire";
+    
+    const start = new Date(startDate + "T00:00:00");
+    const end = new Date(endDate + "T00:00:00");
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (start < today) return "La saison ne peut pas être dans le passé";
+    if (end <= start) return "La date de fin doit être après le début";
+    
+    return null;
+  };
+
+  const validateSeasonLocation = (location: string): string | null => {
+    if (!location.trim()) return "La localisation est obligatoire";
+    if (location.length < 3) return "La localisation doit contenir au moins 3 caractères";
+    if (location.length > 200) return "La localisation ne doit pas dépasser 200 caractères";
+    return null;
+  };
+
+  const validateSeasonForm = (): boolean => {
+    const newErrors: {[key: string]: string} = {};
+    
+    const titleError = validateSeasonTitle(seasonFormData.title);
+    if (titleError) newErrors.title = titleError;
+    
+    const locationError = validateSeasonLocation(seasonFormData.location);
+    if (locationError) newErrors.location = locationError;
+    
+    const dateError = validateSeasonDates(seasonFormData.start_date, seasonFormData.end_date);
+    if (dateError) newErrors.dates = dateError;
+    
+    setSeasonErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSeasonInputChange = (field: string, value: string | File | null) => {
+    setSeasonFormData(prev => ({ ...prev, [field]: value }));
+    // Clear error when user starts typing
+    if (seasonErrors[field]) {
+      setSeasonErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const handleCreateSeason = async () => {
+    if (!validateSeasonForm()) return;
+    
+    setIsCreatingSeason(true);
+    
+    try {
+      // Prepare form data for backend
+      const formData = new FormData();
+      formData.append('title', seasonFormData.title);
+      formData.append('description', seasonFormData.description);
+      formData.append('location', seasonFormData.location);
+      formData.append('start_date', seasonFormData.start_date);
+      formData.append('end_date', seasonFormData.end_date);
+      if (seasonFormData.cover_image) {
+        formData.append('cover_image', seasonFormData.cover_image);
+      }
+      
+      // Create season via backend API
+      const response = await fetch('http://localhost:8000/seasons/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: seasonFormData.title,
+          description: seasonFormData.description,
+          location: seasonFormData.location,
+          start_date: new Date(seasonFormData.start_date).toISOString(),
+          end_date: new Date(seasonFormData.end_date).toISOString(),
+          latitude: null,
+          longitude: null,
+          cover_image_url: null,
+          is_active: false,
+          max_members: null
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Erreur lors de la création de la saison');
+      }
+      
+      const seasonData = await response.json();
+      setCreatedSeason(seasonData);
+      
+      // Reset form
+      setSeasonFormData({
+        title: '',
+        description: '',
+        location: '',
+        start_date: '',
+        end_date: '',
+        cover_image: null
+      });
+      setShowSeasonForm(false);
+      
+    } catch (error) {
+      console.error('Season creation error:', error);
+      setSeasonErrors({ general: `Erreur lors de la création de la saison: ${error.message}` });
+    } finally {
+      setIsCreatingSeason(false);
+    }
+
   };
 
   // Authentication Screen
@@ -1148,6 +1282,254 @@ function App() {
     </div>
   );
 
+  // Seasons Screen
+  const SeasonsScreen = () => (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
+      <div className="bg-white shadow-lg rounded-b-3xl p-6 mb-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">Saisons de vacances</h1>
+            <p className="text-gray-600">Gérez vos saisons familiales</p>
+          </div>
+          <button 
+            onClick={() => setShowSeasonForm(true)}
+            data-testid="create-season"
+            className="bg-gradient-to-r from-blue-400 to-indigo-400 text-white p-3 rounded-full shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+          >
+            <Plus className="w-6 h-6" />
+          </button>
+        </div>
+      </div>
+
+      {/* Success message */}
+      {createdSeason && (
+        <div className="px-6 mb-6">
+          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl">
+            <div className="font-semibold">Saison créée avec succès !</div>
+            <div className="text-sm">Code d'invitation: <span className="font-mono font-bold">{createdSeason.invitation_code}</span></div>
+          </div>
+        </div>
+      )}
+
+      {/* Seasons list - mock data for now */}
+      <div className="px-6 space-y-4 mb-20">
+        {createdSeason && (
+          <div className="bg-white rounded-2xl p-6 shadow-lg" data-testid="seasons-page">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center space-x-4">
+                <div className="w-16 h-16 bg-gradient-to-r from-blue-400 to-indigo-400 rounded-xl flex items-center justify-center text-white text-2xl">
+                  🏝️
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-800 text-lg">{createdSeason.title}</h3>
+                  <p className="text-gray-600">{createdSeason.location}</p>
+                  <p className="text-sm text-gray-500">
+                    {new Date(createdSeason.start_date).toLocaleDateString()} - {new Date(createdSeason.end_date).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm text-indigo-600 font-semibold">Code: {createdSeason.invitation_code}</div>
+                <div className="text-xs text-gray-500">{createdSeason.member_count} membre(s)</div>
+              </div>
+            </div>
+            
+            {createdSeason.description && (
+              <p className="text-gray-600 mb-4">{createdSeason.description}</p>
+            )}
+            
+            <div className="flex space-x-2">
+              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-600">
+                {createdSeason.is_active ? 'Active' : 'À venir'}
+              </span>
+              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">
+                Créée par vous
+              </span>
+            </div>
+          </div>
+        )}
+        
+        {/* Empty state */}
+        {!createdSeason && (
+          <div className="bg-white rounded-2xl p-8 shadow-lg text-center">
+            <div className="text-6xl mb-4">🏖️</div>
+            <h3 className="text-xl font-bold text-gray-800 mb-2">Aucune saison créée</h3>
+            <p className="text-gray-600 mb-6">Créez votre première saison de vacances pour commencer l'aventure familiale !</p>
+            <button 
+              onClick={() => setShowSeasonForm(true)}
+              className="bg-gradient-to-r from-blue-400 to-indigo-400 text-white px-6 py-3 rounded-2xl font-semibold hover:from-blue-500 hover:to-indigo-500 transition-all duration-200 transform hover:scale-105"
+            >
+              Créer une saison
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Season Creation Modal */}
+      {showSeasonForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto" data-testid="season-form">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-800">Créer une nouvelle saison</h2>
+                <button 
+                  onClick={() => setShowSeasonForm(false)}
+                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+
+              {/* General Error */}
+              {seasonErrors.general && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-4">
+                  {seasonErrors.general}
+                </div>
+              )}
+
+              <div className="space-y-4">
+                {/* Title Field */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Titre de la saison *
+                  </label>
+                  <input
+                    type="text"
+                    data-testid="season-title"
+                    value={seasonFormData.title}
+                    onChange={(e) => handleSeasonInputChange('title', e.target.value)}
+                    className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors ${
+                      seasonErrors.title
+                        ? 'border-red-300 focus:border-red-400'
+                        : 'border-gray-300 focus:border-blue-400'
+                    }`}
+                    placeholder="Vacances Réunion 2025"
+                  />
+                  {seasonErrors.title && (
+                    <p className="text-red-600 text-sm mt-1">{seasonErrors.title}</p>
+                  )}
+                </div>
+
+                {/* Description Field */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description (optionnel)
+                  </label>
+                  <textarea
+                    data-testid="season-description"
+                    value={seasonFormData.description}
+                    onChange={(e) => handleSeasonInputChange('description', e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-blue-400 transition-colors"
+                    placeholder="Nos vacances en famille à la Réunion"
+                    rows={3}
+                  />
+                </div>
+
+                {/* Location Field */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Localisation *
+                  </label>
+                  <input
+                    type="text"
+                    data-testid="location"
+                    value={seasonFormData.location}
+                    onChange={(e) => handleSeasonInputChange('location', e.target.value)}
+                    className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors ${
+                      seasonErrors.location
+                        ? 'border-red-300 focus:border-red-400'
+                        : 'border-gray-300 focus:border-blue-400'
+                    }`}
+                    placeholder="Île de La Réunion, France"
+                  />
+                  {seasonErrors.location && (
+                    <p className="text-red-600 text-sm mt-1">{seasonErrors.location}</p>
+                  )}
+                </div>
+
+                {/* Date Fields */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Date de début *
+                    </label>
+                    <input
+                      type="date"
+                      data-testid="start-date"
+                      value={seasonFormData.start_date}
+                      onChange={(e) => handleSeasonInputChange('start_date', e.target.value)}
+                      className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors ${
+                        seasonErrors.dates
+                          ? 'border-red-300 focus:border-red-400'
+                          : 'border-gray-300 focus:border-blue-400'
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Date de fin *
+                    </label>
+                    <input
+                      type="date"
+                      data-testid="end-date"
+                      value={seasonFormData.end_date}
+                      onChange={(e) => handleSeasonInputChange('end_date', e.target.value)}
+                      className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors ${
+                        seasonErrors.dates
+                          ? 'border-red-300 focus:border-red-400'
+                          : 'border-gray-300 focus:border-blue-400'
+                      }`}
+                    />
+                  </div>
+                </div>
+                {seasonErrors.dates && (
+                  <p className="text-red-600 text-sm mt-1">{seasonErrors.dates}</p>
+                )}
+
+                {/* Cover Photo Field */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Photo de couverture (optionnel)
+                  </label>
+                  <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-blue-400 transition-colors">
+                    <input
+                      type="file"
+                      data-testid="cover-photo"
+                      accept="image/*"
+                      onChange={(e) => handleSeasonInputChange('cover_image', e.target.files?.[0] || null)}
+                      className="hidden"
+                      id="cover-upload"
+                    />
+                    <label htmlFor="cover-upload" className="cursor-pointer">
+                      <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                      <p className="text-sm text-gray-600">
+                        {seasonFormData.cover_image ? seasonFormData.cover_image.name : 'Cliquez pour télécharger une photo'}
+                      </p>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Create Button */}
+                <button
+                  onClick={handleCreateSeason}
+                  data-testid="submit-season"
+                  disabled={isCreatingSeason}
+                  className={`w-full py-4 rounded-2xl font-semibold text-lg transition-all duration-200 transform hover:scale-105 ${
+                    isCreatingSeason
+                      ? 'bg-gray-400 text-white cursor-not-allowed'
+                      : 'bg-gradient-to-r from-blue-400 to-indigo-400 text-white hover:from-blue-500 hover:to-indigo-500'
+                  }`}
+                >
+                  {isCreatingSeason ? 'Création...' : 'Créer la saison'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   // Profile Screen
   const ProfileScreen = () => (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50">
@@ -1223,9 +1605,9 @@ function App() {
       <div className="flex justify-around">
         {[
           { id: 'home', icon: Home, label: 'Accueil' },
+          { id: 'seasons', icon: Calendar, label: 'Saisons' },
           { id: 'challenges', icon: Target, label: 'Défis' },
           { id: 'leaderboard', icon: Trophy, label: 'Classement' },
-          { id: 'photos', icon: Camera, label: 'Photos' },
           { id: 'profile', icon: User, label: 'Profil' }
         ].map(item => (
           <button
@@ -1252,6 +1634,7 @@ function App() {
   return (
     <div className="pb-20">
       {currentScreen === 'home' && <HomeScreen />}
+      {currentScreen === 'seasons' && <SeasonsScreen />}
       {currentScreen === 'challenges' && <ChallengesScreen />}
       {currentScreen === 'leaderboard' && <LeaderboardScreen />}
       {currentScreen === 'photos' && <PhotosScreen />}

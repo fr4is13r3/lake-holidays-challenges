@@ -8,10 +8,9 @@ from datetime import datetime, date
 from enum import Enum
 from typing import List, Optional
 from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Boolean, Integer, Float, JSON, Enum as SQLEnum
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, Mapped
 
-from app.database import Base
+from app.database import Base, UUID
 
 
 class ChallengeType(str, Enum):
