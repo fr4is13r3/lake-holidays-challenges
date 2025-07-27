@@ -104,14 +104,50 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isHandlingOAuth, setIsHandlingOAuth] = useState<boolean>(false);
 
+  // Quiz types
+  interface QuizQuestion {
+    question: string;
+    options: string[];
+    correct_answer: number;
+    hint: string;
+  }
+
+  interface QuizChallenge {
+    id: number;
+    title: string;
+    content: {
+      questions: QuizQuestion[];
+      time_limit: number;
+    };
+    points: number;
+  }
+
+  interface QuizResult {
+    correct_count: number;
+    total_questions: number;
+    percentage: number;
+    points_awarded: number;
+    hints_used: number;
+    time_taken: number;
+    feedback_message: string;
+    detailed_results: Array<{
+      question_index: number;
+      question: string;
+      selected_answer: number;
+      correct_answer: number;
+      is_correct: boolean;
+      options: string[];
+    }>;
+  }
+
   // Quiz state
-  const [activeQuiz, setActiveQuiz] = useState<any>(null);
+  const [activeQuiz, setActiveQuiz] = useState<QuizChallenge | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<number[]>([]);
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [hintsUsed, setHintsUsed] = useState(0);
   const [showHint, setShowHint] = useState(false);
-  const [quizResult, setQuizResult] = useState<any>(null);
+  const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
   const [startTime, setStartTime] = useState<number>(0);
 
   // Check for OAuth callback on component mount
@@ -283,7 +319,7 @@ function App() {
   };
 
   // Quiz Functions
-  const startQuiz = (challenge: any) => {
+  const startQuiz = (challenge: QuizChallenge) => {
     setActiveQuiz(challenge);
     setCurrentQuestionIndex(0);
     setSelectedAnswers([]);
@@ -325,7 +361,7 @@ function App() {
     }
   };
 
-  const submitQuiz = async () => {
+  const submitQuiz = React.useCallback(async () => {
     if (!activeQuiz) return;
 
     const timeTaken = Math.floor((Date.now() - startTime) / 1000);
@@ -392,7 +428,7 @@ function App() {
       points: prev.points + earnedPoints,
       dailyPoints: prev.dailyPoints + earnedPoints
     }));
-  };
+  }, [activeQuiz, startTime, selectedAnswers, hintsUsed, setUser]);
 
   // Timer effect
   useEffect(() => {
@@ -406,7 +442,7 @@ function App() {
       // Time's up, auto-submit
       submitQuiz();
     }
-  }, [timeRemaining, activeQuiz, quizResult]);
+  }, [timeRemaining, activeQuiz, quizResult, submitQuiz]);
 
   // Quiz Modal Component
   const QuizModal = () => {
@@ -455,7 +491,7 @@ function App() {
 
             <div className="space-y-3 mb-6">
               <h3 className="font-bold text-gray-800">Détail des réponses :</h3>
-              {quizResult.detailed_results.map((result: any, index: number) => (
+              {quizResult.detailed_results.map((result, index: number) => (
                 <div key={index} className="bg-gray-50 rounded-xl p-3">
                   <div className="flex items-start space-x-2 mb-2">
                     {result.is_correct ? (
