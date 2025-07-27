@@ -275,8 +275,8 @@ function App() {
     if (!startDate) return "La date de début est obligatoire";
     if (!endDate) return "La date de fin est obligatoire";
     
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    const start = new Date(startDate + "T00:00:00");
+    const end = new Date(endDate + "T00:00:00");
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
