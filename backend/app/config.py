@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     
     # Database
-    database_url: str = "postgresql+asyncpg://postgres:password@localhost:5432/lake_holidays"
+    database_url: str = "sqlite+aiosqlite:///./lake_holidays.db"
     
     def __init__(self, **data):
         super().__init__(**data)
@@ -36,6 +36,8 @@ class Settings(BaseSettings):
                 self.database_url = self.database_url.replace("postgres://", "postgresql+asyncpg://", 1)
             elif self.database_url.startswith("postgresql+psycopg2://"):
                 self.database_url = self.database_url.replace("postgresql+psycopg2://", "postgresql+asyncpg://", 1)
+            elif self.database_url.startswith("sqlite://"):
+                self.database_url = self.database_url.replace("sqlite://", "sqlite+aiosqlite://", 1)
     
     # Redis (for caching and sessions)
     redis_url: str = "redis://localhost:6379/0"
