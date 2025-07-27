@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
 import { User, MapPin, Trophy, Camera, Star, Home, Target, Plus } from 'lucide-react';
+import { ProfileCreation } from './components/ProfileCreation';
+import { SuccessModal } from './components/SuccessModal';
+import { getAvatarById } from './constants/avatars';
+import { ProfileData } from './types/profile';
 
 // Mock data for demonstration
 const mockUser = {
@@ -7,11 +11,13 @@ const mockUser = {
   name: "Sophie",
   age: 15,
   avatar: "🌺",
+  avatarId: "photographe-2",
   points: 2850,
   dailyPoints: 125,
   streak: 5,
   badges: 12,
-  rank: 2
+  rank: 2,
+  hasProfile: false // Track if user has completed profile creation
 };
 
 const mockFamily = [
@@ -76,10 +82,15 @@ const mockPhotos = [
 ];
 
 function App() {
-  const [currentScreen, setCurrentScreen] = useState<'home' | 'challenges' | 'leaderboard' | 'photos' | 'profile'>('home');
+  const [currentScreen, setCurrentScreen] = useState<'home' | 'challenges' | 'leaderboard' | 'photos' | 'profile' | 'profile-creation'>('home');
   const [user, setUser] = useState<typeof mockUser>(mockUser);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isHandlingOAuth, setIsHandlingOAuth] = useState<boolean>(false);
+  const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
+  const [successMessage, setSuccessMessage] = useState<{ title: string; message: string }>({ 
+    title: '', 
+    message: '' 
+  });
 
   // Check for OAuth callback on component mount
   React.useEffect(() => {
@@ -248,6 +259,51 @@ function App() {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
   };
+
+  // Profile creation/update handlers
+  const handleProfileSubmit = async (profileData: ProfileData) => {
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Update user with profile data
+      const selectedAvatar = getAvatarById(profileData.avatar_url);
+      setUser(prevUser => ({
+        ...prevUser,
+        name: profileData.display_name,
+        age: profileData.age || prevUser.age,
+        avatar: selectedAvatar?.emoji || prevUser.avatar,
+        avatarId: profileData.avatar_url,
+        hasProfile: true
+      }));
+
+      // Show success message
+      setSuccessMessage({
+        title: 'Profil créé avec succès',
+        message: 'Votre profil a été créé avec succès ! Vous pouvez maintenant profiter pleinement des défis familiaux.'
+      });
+      setShowSuccessModal(true);
+      
+      // Navigate back to profile or home after creation
+      setCurrentScreen('profile');
+      
+    } catch (error) {
+      console.error('Error creating profile:', error);
+      throw error; // Re-throw so the component can handle it
+    }
+  };
+
+  const handleProfileEdit = () => {
+    setCurrentScreen('profile-creation');
+  };
+
+  // Check if user needs to create profile
+  React.useEffect(() => {
+    if (isAuthenticated && !user.hasProfile) {
+      // Redirect to profile creation for new users
+      setCurrentScreen('profile-creation');
+    }
+  }, [isAuthenticated, user.hasProfile]);
 
   // Authentication Screen
   const AuthScreen = () => (
@@ -765,6 +821,14 @@ function App() {
           </div>
           <h1 className="text-2xl font-bold text-gray-800">{user.name}</h1>
           <p className="text-gray-600">{user.age} ans • Famille Dupont</p>
+          
+          {/* Edit Profile Button */}
+          <button
+            onClick={handleProfileEdit}
+            className="mt-4 bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-6 py-2 rounded-full font-semibold hover:from-indigo-600 hover:to-purple-600 transition-all duration-200 transform hover:scale-105"
+          >
+            Modifier le profil
+          </button>
         </div>
       </div>
 
@@ -863,7 +927,28 @@ function App() {
       {currentScreen === 'leaderboard' && <LeaderboardScreen />}
       {currentScreen === 'photos' && <PhotosScreen />}
       {currentScreen === 'profile' && <ProfileScreen />}
-      <BottomNavigation />
+      {currentScreen === 'profile-creation' && (
+        <ProfileCreation
+          onSubmit={handleProfileSubmit}
+          onCancel={() => setCurrentScreen(user.hasProfile ? 'profile' : 'home')}
+          initialData={user.hasProfile ? {
+            display_name: user.name,
+            avatar_url: user.avatarId || '',
+            age: user.age,
+            challenge_preferences: {}
+          } : undefined}
+          isEdit={user.hasProfile}
+        />
+      )}
+      
+      {currentScreen !== 'profile-creation' && <BottomNavigation />}
+      
+      <SuccessModal
+        isOpen={showSuccessModal}
+        title={successMessage.title}
+        message={successMessage.message}
+        onClose={() => setShowSuccessModal(false)}
+      />
     </div>
   );
 }
