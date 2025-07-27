@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { User, MapPin, Trophy, Camera, Star, Home, Target, Plus } from 'lucide-react';
 
 // Mock data for demonstration
@@ -79,6 +79,73 @@ function App() {
   const [currentScreen, setCurrentScreen] = useState<'home' | 'challenges' | 'leaderboard' | 'photos' | 'profile'>('home');
   const [user, setUser] = useState<typeof mockUser>(mockUser);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isHandlingOAuth, setIsHandlingOAuth] = useState<boolean>(false);
+
+  // Check for OAuth callback on component mount
+  React.useEffect(() => {
+    const handleOAuthCallback = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+      const state = urlParams.get('state');
+      const error = urlParams.get('error');
+      
+      if (error) {
+        setErrors({ general: `Erreur OAuth: ${error}` });
+        // Clean URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return;
+      }
+      
+      if (code && state && (state === 'google' || state === 'microsoft')) {
+        setIsHandlingOAuth(true);
+        
+        try {
+          const redirectUri = `${window.location.origin}/auth/callback`;
+          
+          const response = await fetch(`http://localhost:8000/auth/oauth/${state}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              provider: state,
+              code: code,
+              redirect_uri: redirectUri
+            }),
+          });
+          
+          if (!response.ok) {
+            throw new Error(`OAuth authentication failed`);
+          }
+          
+          const tokenData = await response.json();
+          
+          // Update user with OAuth data
+          setUser({
+            ...mockUser,
+            name: tokenData.username || tokenData.email,
+            id: tokenData.user_id
+          });
+          
+          // Set authenticated
+          setIsAuthenticated(true);
+          
+          // Clean URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+          
+        } catch (error) {
+          console.error('OAuth callback error:', error);
+          setErrors({ general: `Erreur lors de la connexion OAuth. Veuillez réessayer.` });
+          // Clean URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+        } finally {
+          setIsHandlingOAuth(false);
+        }
+      }
+    };
+    
+    handleOAuthCallback();
+  }, []);
 
   // Authentication state
   const [authMode, setAuthMode] = useState<'familyCode' | 'localAccount'>('familyCode');
@@ -152,6 +219,28 @@ function App() {
     }
   };
 
+  const handleOAuthLogin = async (provider: 'google' | 'microsoft') => {
+    try {
+      const redirectUri = `${window.location.origin}/auth/callback`;
+      
+      // Get OAuth authorization URL from backend
+      const response = await fetch(`http://localhost:8000/auth/oauth/${provider}/url?redirect_uri=${encodeURIComponent(redirectUri)}&state=${provider}`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to get ${provider} OAuth URL`);
+      }
+      
+      const data = await response.json();
+      
+      // Redirect to OAuth provider
+      window.location.href = data.auth_url;
+      
+    } catch (error) {
+      console.error(`${provider} OAuth error:`, error);
+      setErrors({ general: `Erreur lors de la connexion avec ${provider === 'google' ? 'Google' : 'Microsoft'}. Veuillez réessayer.` });
+    }
+  };
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     // Clear error when user starts typing
@@ -170,29 +259,40 @@ function App() {
           <p className="text-gray-600">Gamifiez vos vacances à La Réunion</p>
         </div>
 
-        {/* Mode Toggle */}
-        <div className="flex bg-gray-100 rounded-2xl p-1 mb-6">
-          <button
-            onClick={() => setAuthMode('familyCode')}
-            className={`flex-1 py-2 px-4 rounded-xl font-medium transition-all duration-200 ${
-              authMode === 'familyCode'
-                ? 'bg-white text-gray-800 shadow-sm'
-                : 'text-gray-600'
-            }`}
-          >
-            Code Famille
-          </button>
-          <button
-            onClick={() => setAuthMode('localAccount')}
-            className={`flex-1 py-2 px-4 rounded-xl font-medium transition-all duration-200 ${
-              authMode === 'localAccount'
-                ? 'bg-white text-gray-800 shadow-sm'
-                : 'text-gray-600'
-            }`}
-          >
-            Créer un compte local
-          </button>
-        </div>
+        {/* OAuth Processing */}
+        {isHandlingOAuth && (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+            <p className="text-gray-600">Connexion en cours...</p>
+          </div>
+        )}
+
+        {/* Normal Auth UI */}
+        {!isHandlingOAuth && (
+          <>
+            {/* Mode Toggle */}
+            <div className="flex bg-gray-100 rounded-2xl p-1 mb-6">
+              <button
+                onClick={() => setAuthMode('familyCode')}
+                className={`flex-1 py-2 px-4 rounded-xl font-medium transition-all duration-200 ${
+                  authMode === 'familyCode'
+                    ? 'bg-white text-gray-800 shadow-sm'
+                    : 'text-gray-600'
+                }`}
+              >
+                Code Famille
+              </button>
+              <button
+                onClick={() => setAuthMode('localAccount')}
+                className={`flex-1 py-2 px-4 rounded-xl font-medium transition-all duration-200 ${
+                  authMode === 'localAccount'
+                    ? 'bg-white text-gray-800 shadow-sm'
+                    : 'text-gray-600'
+                }`}
+              >
+                Créer un compte local
+              </button>
+            </div>
         
         {authMode === 'familyCode' ? (
           // Family Code Mode
@@ -326,6 +426,41 @@ function App() {
               </ul>
             </div>
           </div>
+        )}
+
+        {/* OAuth Buttons - Always visible */}
+        <div className="mt-6 space-y-3">
+          <div className="text-center text-sm text-gray-500 mb-4">
+            Ou se connecter avec
+          </div>
+          
+          <button 
+            onClick={() => handleOAuthLogin('google')}
+            className="w-full flex items-center justify-center space-x-3 border-2 border-gray-300 text-gray-700 py-3 rounded-2xl font-semibold hover:bg-gray-50 transition-all duration-200"
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24">
+              <path fill="#4285f4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34a853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#fbbc05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="#ea4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            <span>Se connecter avec Google</span>
+          </button>
+          
+          <button 
+            onClick={() => handleOAuthLogin('microsoft')}
+            className="w-full flex items-center justify-center space-x-3 border-2 border-gray-300 text-gray-700 py-3 rounded-2xl font-semibold hover:bg-gray-50 transition-all duration-200"
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24">
+              <path fill="#f25022" d="M1 1h10v10H1z"/>
+              <path fill="#00a4ef" d="M13 1h10v10H13z"/>
+              <path fill="#7fba00" d="M1 13h10v10H1z"/>
+              <path fill="#ffb900" d="M13 13h10v10H13z"/>
+            </svg>
+            <span>Se connecter avec Microsoft</span>
+          </button>
+        </div>
+        </>
         )}
       </div>
     </div>

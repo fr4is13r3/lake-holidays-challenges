@@ -18,6 +18,7 @@ from app.schemas.auth import (
 )
 from app.services.auth_service import AuthService
 from app.utils.security import get_current_user
+from app.utils.oauth import get_google_auth_url, get_microsoft_auth_url
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -106,6 +107,41 @@ async def login(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Login failed"
+        )
+
+
+@router.get("/oauth/{provider}/url")
+async def get_oauth_url(
+    provider: str,
+    redirect_uri: str,
+    state: Optional[str] = None
+):
+    """
+    Get OAuth authorization URL for the specified provider.
+    Returns the URL to redirect users to for OAuth authentication.
+    """
+    try:
+        if provider not in ["google", "microsoft"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Unsupported OAuth provider"
+            )
+        
+        if provider == "google":
+            auth_url = get_google_auth_url(redirect_uri, state)
+        else:  # microsoft
+            auth_url = get_microsoft_auth_url(redirect_uri, state)
+        
+        logger.info("OAuth URL generated", provider=provider)
+        return {"auth_url": auth_url, "provider": provider}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to generate OAuth URL", provider=provider, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate OAuth URL"
         )
 
 

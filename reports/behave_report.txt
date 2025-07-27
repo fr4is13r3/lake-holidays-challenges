@@ -1,0 +1,31 @@
+Feature: Authentification des utilisateurs # features/01_authentication.feature:1
+  En tant qu'utilisateur de l'application de vacances gamifiées
+  Je veux pouvoir me connecter avec différents moyens d'authentification
+  Afin d'accéder à mes données personnalisées et participer aux défis familiaux
+  Background:   # features/01_authentication.feature:6
+
+  @authentication @google
+  Scenario: Connexion avec un compte Google                     # features/01_authentication.feature:23
+    Given l'application est accessible via un navigateur mobile # steps/authentication_steps.py:46
+      Traceback (most recent call last):
+        File "/home/runner/.local/lib/python3.12/site-packages/behave/model.py", line 1329, in run
+          match.run(runner.context)
+        File "/home/runner/.local/lib/python3.12/site-packages/behave/matchers.py", line 98, in run
+          self.func(context, *args, **kwargs)
+        File "steps/authentication_steps.py", line 49, in step_app_accessible_mobile
+          context.driver.get(context.base_url)
+          ^^^^^^^^^^^^^^
+        File "/home/runner/.local/lib/python3.12/site-packages/behave/runner.py", line 321, in __getattr__
+          raise AttributeError(msg)
+      AttributeError: 'Context' object has no attribute 'driver'
+
+    And l'interface d'authentification est affichée             # None
+    Given je suis sur la page de connexion                      # None
+    When je clique sur le bouton "Se connecter avec Google"     # None
+    And je suis redirigé vers Google OAuth                      # None
+    And je m'authentifie avec mes identifiants Google valides   # None
+    And j'autorise l'application à accéder à mes informations   # None
+    Then je dois être redirigé vers l'application               # None
+    And je dois être connecté automatiquement                   # None
+    And mon profil doit être créé avec les informations Google  # None
+
