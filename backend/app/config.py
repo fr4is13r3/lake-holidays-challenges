@@ -36,6 +36,8 @@ class Settings(BaseSettings):
                 self.database_url = self.database_url.replace("postgres://", "postgresql+asyncpg://", 1)
             elif self.database_url.startswith("postgresql+psycopg2://"):
                 self.database_url = self.database_url.replace("postgresql+psycopg2://", "postgresql+asyncpg://", 1)
+            elif self.database_url.startswith("sqlite://"):
+                self.database_url = self.database_url.replace("sqlite://", "sqlite+aiosqlite://", 1)
     
     # Redis (for caching and sessions)
     redis_url: str = "redis://localhost:6379/0"

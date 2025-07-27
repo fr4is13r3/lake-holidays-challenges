@@ -7,10 +7,9 @@ import uuid
 from datetime import datetime
 from typing import List, Optional
 from sqlalchemy import Column, String, DateTime, Boolean, Integer, ForeignKey, Text, JSON
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, Mapped
 
-from app.database import Base
+from app.database import Base, UUID
 
 
 class User(Base):
