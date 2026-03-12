@@ -2,7 +2,7 @@
 # FastAPI and core dependencies
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
-python-multipart==0.0.18
+python-multipart==0.0.22
 pydantic==2.5.0
 pydantic-settings==2.1.0
 aiofiles==23.2.0
@@ -27,7 +27,7 @@ azure-ai-textanalytics==5.3.0
 azure-storage-blob==12.19.0
 
 # Image Processing
-Pillow==10.3.0
+Pillow==12.1.1
 python-magic==0.4.27
 
 # Geolocation & Maps
@@ -46,7 +46,7 @@ structlog==23.2.0
 prometheus-client==0.19.0
 
 # Development
-black==24.3.0
+black==26.3.1
 isort==5.12.0
 flake8==6.1.0
 mypy==1.7.1
